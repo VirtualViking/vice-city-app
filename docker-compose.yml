@@ -1,0 +1,15 @@
+# PostgreSQL local para desarrollo: docker compose up -d
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: vicecity
+      POSTGRES_USER: vicecity
+      POSTGRES_PASSWORD: vicecity
+    ports:
+      - "5432:5432"
+    volumes:
+      - datos-postgres:/var/lib/postgresql/data
+
+volumes:
+  datos-postgres:
