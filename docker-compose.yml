@@ -10,6 +10,8 @@ services:
       - "5432:5432"
     volumes:
       - datos-postgres:/var/lib/postgresql/data
+      # Crea también la base vicecity_test (solo la primera vez que se crea el volumen)
+      - ./docker/crear-base-pruebas.sql:/docker-entrypoint-initdb.d/crear-base-pruebas.sql:ro
 
 volumes:
   datos-postgres:
