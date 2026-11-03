@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "vicecity"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     jvmToolchain(21)
@@ -29,10 +29,30 @@ dependencies {
 
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
+    implementation(libs.exposed.java.time)
+    implementation(libs.exposed.json)
+    implementation(libs.flyway.core)
+    implementation(libs.flyway.postgresql)
+    implementation(libs.bcrypt)
+    implementation(libs.ktor.server.auth)
+    implementation(libs.ktor.server.auth.jwt)
     implementation(libs.postgresql)
     implementation(libs.hikari)
     implementation(libs.logback)
 
+    // Ktor 3.6.1 trae Netty 4.2.17 y java-jwt 4.6.0, con vulnerabilidades conocidas.
+    // Se fuerzan las versiones corregidas mientras Ktor no las actualice.
+    implementation(platform(libs.netty.bom))
+    constraints {
+        implementation(libs.java.jwt) { because("CVE-2026-85473, corregida en 4.6.2") }
+    }
+
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)
+    testImplementation(libs.ktor.client.content.negotiation)
+}
+
+tasks.test {
+    // Las pruebas de integración usan PostgreSQL real si TEST_DATABASE_URL está definida
+    environment("TEST_DATABASE_URL", System.getenv("TEST_DATABASE_URL") ?: "")
 }
