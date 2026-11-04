@@ -6,12 +6,16 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import io.ktor.server.auth.Authentication
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.httpMethod
+import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
@@ -19,32 +23,60 @@ import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.pingPeriod
 import io.ktor.server.websocket.timeout
 import kotlinx.serialization.json.Json
+import vicecity.compartido.CodigosError
+import vicecity.compartido.ErrorApi
 import vicecity.compartido.Rutas
 import vicecity.compartido.Salud
+import vicecity.servidor.rutas.rutasAuth
+import vicecity.servidor.rutas.rutasSesiones
+import vicecity.servidor.seguridad.ServicioJwt
+import vicecity.servidor.servicios.AuthService
+import vicecity.servidor.servicios.Inicializador
+import vicecity.servidor.servicios.SesionService
 import kotlin.time.Duration.Companion.seconds
 
-const val VERSION = "0.1.0"
+const val VERSION = "0.2.0"
 
 fun main() {
     // Render asigna el puerto en la variable PORT; en local se usa 8081
     // (el 8080 lo ocupa el servidor de desarrollo de la web)
     val puerto = System.getenv("PORT")?.toIntOrNull() ?: 8081
     val config = Configuracion.desdeEntorno()
+    val baseDatos = BaseDatos.conectar(config.urlBaseDatos)?.also {
+        it.migrar()
+        Inicializador.ejecutar(it, config)
+    }
     embeddedServer(Netty, port = puerto, host = "0.0.0.0") {
-        modulo(config, BaseDatos.conectar(config.urlBaseDatos))
+        modulo(config, baseDatos)
     }.start(wait = true)
 }
 
 /** Configura plugins y rutas. Recibe la base de datos para poder probarlo sin PostgreSQL. */
 fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?) {
+    val jwt = ServicioJwt(config.jwtSecreto)
+    // Sin base de datos, las rutas que la necesitan responden 503
+    fun bd(): BaseDatos = baseDatos ?: throw baseDatosNoDisponible()
+    val auth by lazy { AuthService(bd(), jwt) }
+    val sesiones by lazy { SesionService(bd()) }
+
     install(ContentNegotiation) {
-        json(Json { ignoreUnknownKeys = true })
+        json(Json { ignoreUnknownKeys = true; explicitNulls = false })
     }
-    install(CallLogging)
+    install(CallLogging) {
+        // Las comprobaciones de Render a /salud llenarían el log
+        filter { it.request.path() != Rutas.SALUD }
+    }
     install(StatusPages) {
+        exception<ApiExcepcion> { llamada, e ->
+            llamada.respond(e.estado, ErrorApi(e.codigo, e.message, e.detalles))
+        }
+        exception<BadRequestException> { llamada, _ ->
+            // JSON mal formado o con campos faltantes
+            llamada.respond(HttpStatusCode.BadRequest, ErrorApi(CodigosError.DATOS_INVALIDOS, "El cuerpo de la petición no es válido"))
+        }
         exception<Throwable> { llamada, causa ->
-            llamada.application.environment.log.error("Error no controlado", causa)
-            llamada.respond(HttpStatusCode.InternalServerError, mapOf("codigo" to "ERROR_INTERNO", "mensaje" to "Error interno del servidor"))
+            llamada.application.environment.log.error("Error no controlado en ${llamada.request.httpMethod.value} ${llamada.request.path()}", causa)
+            llamada.respond(HttpStatusCode.InternalServerError, ErrorApi(CodigosError.ERROR_INTERNO, "Error interno del servidor"))
         }
     }
     install(CORS) {
@@ -64,10 +96,15 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?) {
         pingPeriod = 30.seconds
         timeout = 60.seconds
     }
+    install(Authentication) {
+        jwt.configurar(this)
+    }
 
     routing {
         get(Rutas.SALUD) {
             call.respond(Salud(estado = "ok", baseDatos = BaseDatos.estado(baseDatos), version = VERSION))
         }
+        rutasAuth { auth }
+        rutasSesiones { sesiones }
     }
 }
