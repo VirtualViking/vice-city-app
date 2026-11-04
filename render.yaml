@@ -23,3 +23,11 @@ services:
         sync: false
       - key: CORS_ORIGENES
         value: https://virtualviking.github.io
+      - key: JWT_SECRETO
+        generateValue: true          # Render genera una clave aleatoria
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ESTABLECIMIENTO_NOMBRE
+        sync: false
