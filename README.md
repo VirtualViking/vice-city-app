@@ -2,7 +2,7 @@
 
 PMV para pedir y votar la música de un establecimiento mediante un código QR. Proyecto nuclear de Construcción de Aplicaciones Móviles y Big Data.
 
-Estado: **paso 5, estructura base**. La web muestra una pantalla provisional que verifica la cadena web → servidor → base de datos. La app se construye desde la iteración 1.
+Estado: **iteración 1, entrega 1.1** (base de datos, login del personal y sesiones). La web aún muestra la pantalla provisional de salud; las pantallas llegan en la entrega 1.3.
 
 ## Arquitectura
 
@@ -15,9 +15,15 @@ Estado: **paso 5, estructura base**. La web muestra una pantalla provisional que
 
 ```
 vice-city-app/
-├── shared/src/commonMain/kotlin/vicecity/compartido/   # Salud.kt, Api.kt (rutas)
-├── server/src/main/kotlin/vicecity/servidor/           # Application.kt, Configuracion.kt, BaseDatos.kt
-├── server/src/test/kotlin/vicecity/servidor/           # SaludTest.kt
+├── shared/src/commonMain/kotlin/vicecity/compartido/   # rutas (Api.kt) y modelos del contrato de la API
+├── server/src/main/kotlin/vicecity/servidor/
+│   ├── Application.kt, Configuracion.kt, BaseDatos.kt, Errores.kt
+│   ├── datos/        # tablas de Exposed
+│   ├── seguridad/    # contraseñas (bcrypt) y tokens JWT
+│   ├── servicios/    # AuthService, SesionService, EventoService, Inicializador
+│   └── rutas/        # endpoints REST
+├── server/src/main/resources/db/migracion/            # migraciones Flyway (esquema SQL)
+├── server/src/test/kotlin/vicecity/servidor/           # pruebas (unitarias y de integración)
 ├── webApp/src/webMain/kotlin/vicecity/web/             # App.kt, ClienteApi.kt, Configuracion.kt, main.kt
 ├── webApp/src/webMain/resources/                       # index.html, config.js, manifest, sw.js, íconos
 ├── .github/workflows/ci.yml                            # pruebas del servidor en cada push
@@ -26,7 +32,34 @@ vice-city-app/
 └── docker-compose.yml                                  # PostgreSQL local
 ```
 
-Versiones: Kotlin 2.4.21 · Compose Multiplatform 1.12.2 · Ktor 3.6.1 · Exposed 1.6.0 · PostgreSQL JDBC 42.7.14 · Gradle 8.14.3 · JDK 21.
+Versiones: Kotlin 2.4.21 · Compose Multiplatform 1.12.2 · Ktor 3.6.1 · Exposed 1.6.0 · Flyway 13.12.0 · PostgreSQL JDBC 42.7.14 · Gradle 8.14.3 · JDK 21.
+
+Netty (4.2.20) y java-jwt (4.6.2) se fuerzan en `server/build.gradle.kts` porque Ktor 3.6.1 trae versiones con vulnerabilidades conocidas. Se puede quitar cuando Ktor las actualice.
+
+## Flujo de trabajo con Git
+
+- `main` es la rama publicada: sus cambios se despliegan en Render (servidor) y GitHub Pages (web).
+- Cada entrega se trabaja en una rama `feature/<entrega>-<tema>`, por ejemplo `feature/1.1-acceso-sesiones`, con commits pequeños.
+- Al terminar, se abre un Pull Request hacia `main` y se fusiona solo con el CI en verde.
+
+## Base de datos
+
+- El esquema está en `server/src/main/resources/db/migracion/` y lo aplica **Flyway** al arrancar el servidor. Nunca se modifica una migración ya desplegada: los cambios van en un archivo nuevo (`V2__…sql`, `V3__…sql`).
+- En el primer arranque con la base vacía, el servidor crea el establecimiento y la cuenta de administrador con `ESTABLECIMIENTO_NOMBRE`, `ADMIN_EMAIL` y `ADMIN_PASSWORD`. El código QR del establecimiento aparece en el log (*Establecimiento creado … con código QR …*). Después ya no hace nada: cambiar esas variables no cambia la cuenta existente.
+- La tabla `evento` es de solo inserción (RNF-15): un *trigger* rechaza cualquier `UPDATE` o `DELETE`.
+
+## Endpoints disponibles
+
+| Método y ruta | Quién | Respuesta |
+| --- | --- | --- |
+| `GET /api/v1/salud` | Público | Estado del servidor y de la base |
+| `POST /api/v1/auth/login` | Público | Token JWT (12 h), rol y nombre (HU-02) |
+| `POST /api/v1/admin/sesiones` | ADMIN, DJ | 201 con la sesión abierta; 409 `SESION_YA_ABIERTA` si ya hay una (HU-03) |
+| `GET /api/v1/admin/sesiones/activa` | ADMIN, DJ | `{"sesion": …}` o `{}` si no hay sesión abierta |
+| `POST /api/v1/admin/sesiones/{id}/cerrar` | ADMIN, DJ | Sesión cerrada y cuántas canciones quedaron sin sonar; 409 `SESION_CERRADA` |
+| `GET /api/v1/admin/sesiones?desde=…&hasta=…` | Solo ADMIN | Historial de sesiones (fechas ISO 8601, opcionales) |
+
+Las rutas `/admin` exigen el encabezado `Authorization: Bearer <token>`. Los errores siguen el formato `{"codigo": "...", "mensaje": "..."}` del contrato.
 
 ## Variables de entorno del servidor
 
@@ -34,7 +67,12 @@ Versiones: Kotlin 2.4.21 · Compose Multiplatform 1.12.2 · Ktor 3.6.1 · Expose
 | --- | --- | --- |
 | `DATABASE_URL` | `postgresql://usuario:clave@ep-xxxx.neon.tech/vicecity?sslmode=require` | Conexión a PostgreSQL. Si falta, el servidor arranca igual y `/salud` dice `NO_CONFIGURADA`. |
 | `CORS_ORIGENES` | `https://virtualviking.github.io` | Orígenes de la web separados por coma. En local, por defecto `http://localhost:8080`. |
-| `YOUTUBE_API_KEY` | `AIza…` | Clave de la YouTube Data API. Se usa desde la iteración 1. |
+| `YOUTUBE_API_KEY` | `AIza…` | Clave de la YouTube Data API. Se usa desde la entrega 1.2. |
+| `JWT_SECRETO` | 40 o más caracteres aleatorios | Firma los tokens del personal. Si falta, se usa una clave temporal y los tokens dejan de valer en cada reinicio. |
+| `ADMIN_EMAIL` | `tu-correo@ejemplo.com` | Cuenta de administrador que se crea en el primer arranque. |
+| `ADMIN_PASSWORD` | una contraseña segura | Contraseña de esa cuenta (se guarda cifrada con bcrypt). |
+| `ADMIN_NOMBRE` | `Sebas` | Opcional. Por defecto, "Administrador". |
+| `ESTABLECIMIENTO_NOMBRE` | `Vice City Bar` | Opcional. Nombre del establecimiento que se crea en el primer arranque. |
 | `PORT` | `10000` | La asigna Render. En local, por defecto `8081`. |
 
 Nunca subas estos valores al repositorio: van en Render (o en tu configuración local de IntelliJ).
@@ -45,13 +83,17 @@ Nunca subas estos valores al repositorio: van en Render (o en tu configuración 
    ```powershell
    docker compose up -d
    ```
-   Crea la base `vicecity` (usuario `vicecity`, clave `vicecity`) en el puerto 5432.
+   Crea las bases `vicecity` y `vicecity_test` (usuario `vicecity`, clave `vicecity`) en el puerto 5432.
 
 2. **Servidor**, en la terminal de IntelliJ (PowerShell):
    ```powershell
    $env:DATABASE_URL = "postgresql://vicecity:vicecity@localhost:5432/vicecity"
+   $env:JWT_SECRETO = "una-clave-larga-solo-para-desarrollo-local"
+   $env:ADMIN_EMAIL = "admin@local.test"
+   $env:ADMIN_PASSWORD = "clave-local-123"
    ./gradlew :server:run
    ```
+   Si la terminal dice `JAVA_HOME is not set`, define `JAVA_HOME` en las variables de entorno de Windows con la ruta de un JDK 21.
    Comprueba en el navegador: <http://localhost:8081/api/v1/salud> → `"baseDatos":"CONECTADA"`.
 
 3. **Web**, en otra terminal:
@@ -60,7 +102,12 @@ Nunca subas estos valores al repositorio: van en Render (o en tu configuración 
    ```
    Abre <http://localhost:8080>. Debe mostrar Servidor "Responde" y Base de datos "Conectada".
 
-4. **Pruebas del servidor:** `./gradlew :server:test`
+4. **Pruebas del servidor:**
+   ```powershell
+   $env:TEST_DATABASE_URL = "postgresql://vicecity:vicecity@localhost:5432/vicecity_test"
+   ./gradlew :server:test
+   ```
+   Sin `TEST_DATABASE_URL` solo corren las pruebas que no usan base de datos. **Las pruebas de integración borran la base completa**, por eso se niegan a correr si el nombre de la base no termina en `_test`. En GitHub Actions corren siempre, con un PostgreSQL propio del CI.
 
 ## Configurar la nube (una sola vez)
 
@@ -75,10 +122,10 @@ Nunca subas estos valores al repositorio: van en Render (o en tu configuración 
 
 1. Crea una cuenta en <https://render.com> con tu cuenta de GitHub.
 2. **New → Blueprint** → elige el repositorio `vice-city-app`. Render lee `render.yaml` y crea el servicio `vice-city-api`.
-3. Te pedirá `DATABASE_URL` (la de Neon) y `YOUTUBE_API_KEY` (si aún no la tienes, déjala vacía y agrégala después en *Environment*).
-4. Espera el primer despliegue y copia la URL del servicio, por ejemplo `https://vice-city-api.onrender.com`. Pruébala: `…/api/v1/salud`.
+3. Te pedirá `DATABASE_URL` (la de Neon), `YOUTUBE_API_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` y `ESTABLECIMIENTO_NOMBRE`. `JWT_SECRETO` la genera Render. Si creaste el servicio a mano (*New → Web Service*), agrega esas variables en **Environment**; para `JWT_SECRETO` usa el botón **Generate**.
+4. Espera el primer despliegue y copia la URL del servicio. La de este proyecto es `https://vice-city-app.onrender.com`. Pruébala: `…/api/v1/salud`.
 
-Se redespliega solo cuando cambian `server/`, `shared/` o la configuración de Gradle, y solo si el CI de GitHub pasa.
+Con el Blueprint, se redespliega solo cuando cambian `server/`, `shared/` o la configuración de Gradle, y solo si el CI de GitHub pasa. Si creaste el servicio a mano, en **Settings → Auto-Deploy** elige **After CI Checks Pass** para tener el mismo comportamiento.
 
 > El plan gratuito se duerme tras 15 minutos sin tráfico. La primera petición después tarda cerca de un minuto. Durante una sesión no se duerme, porque la vista pública enviará un mensaje periódico por WebSocket (iteración 1).
 
@@ -87,7 +134,7 @@ Se redespliega solo cuando cambian `server/`, `shared/` o la configuración de G
 1. En el repositorio: **Settings → Pages → Source: GitHub Actions**.
 2. **Settings → Secrets and variables → Actions → pestaña Variables → New repository variable**:
    - Name: `API_BASE`
-   - Value: la URL de Render, sin `/` al final (por ejemplo `https://vice-city-api.onrender.com`).
+   - Value: la URL de Render, sin `/` al final (`https://vice-city-app.onrender.com`).
 3. **Settings → Environments → github-pages**: en *Deployment branches and tags* verifica que `main` esté permitida (es el error que tuvimos en la PoC).
 4. Ejecuta **Actions → Publicar web en GitHub Pages → Run workflow**. La web queda en `https://virtualviking.github.io/vice-city-app/`.
 
@@ -102,7 +149,14 @@ Se redespliega solo cuando cambian `server/`, `shared/` o la configuración de G
 
 Cuota por defecto: 10.000 unidades diarias, pero las búsquedas (`search.list`) tienen un cupo propio de unas **100 llamadas al día**. Por eso la caché de búsquedas (RNF-14) es obligatoria desde la iteración 1.
 
-## Verificación de esta estructura base
+## Verificación de la entrega 1.1
+
+- 15 pruebas automáticas: 4 sin base de datos y 11 de integración contra PostgreSQL real (16 en local, 17 en el CI). Cubren migraciones, datos iniciales sin duplicar, login correcto e incorrecto, cuenta inactiva, token alterado, sesiones (abrir, duplicada, activa, cerrar con canciones pendientes y sus eventos), permisos del DJ, aislamiento entre establecimientos, filtro de fechas y el *trigger* de la tabla `evento`.
+- Prueba manual del servidor compilado: primer arranque con base vacía (migra y crea establecimiento y admin), login, abrir sesión y consultar la activa; segundo arranque sin migrar ni duplicar datos.
+- En el CI, el paso *Pruebas del servidor* lista cada prueba con su resultado (`PASSED`, `SKIPPED` o `FAILED`).
+- El despliegue en Render y la migración sobre Neon se verifican al fusionar en `main`, en el log de Render.
+
+## Verificación de la estructura base (paso 5)
 
 - Servidor: 3 pruebas automáticas (salud, CORS, conversión de la URL de Neon) y prueba manual contra un PostgreSQL real con los tres estados: conectada, error y no configurada.
 - Web (versión JavaScript): probada en Chromium contra el servidor y PostgreSQL. Muestra "Conectada".
