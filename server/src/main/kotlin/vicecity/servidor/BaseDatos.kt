@@ -2,13 +2,17 @@ package vicecity.servidor
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.slf4j.LoggerFactory
 import vicecity.compartido.EstadoBaseDatos
 import java.net.URI
 
-/** Conexión a PostgreSQL (local con Docker o Neon en producción) mediante HikariCP + Exposed. */
+/** Conexión a PostgreSQL (local o Neon en producción) mediante HikariCP + Exposed, con migraciones Flyway. */
 class BaseDatos private constructor(val fuente: HikariDataSource) {
     val database: Database = Database.connect(fuente)
 
@@ -16,6 +20,21 @@ class BaseDatos private constructor(val fuente: HikariDataSource) {
     fun responde(): Boolean = runCatching {
         transaction(database) { exec("SELECT 1") { it.next() } } == true
     }.getOrDefault(false)
+
+    /** Aplica las migraciones pendientes de src/main/resources/db/migracion. */
+    fun migrar() {
+        val flyway = Flyway.configure()
+            .dataSource(fuente)
+            .locations("classpath:db/migracion")
+            .connectRetries(5)               // Neon puede tardar unos instantes en despertar
+            .load()
+        val resultado = flyway.migrate()
+        log.info("Migraciones aplicadas: {} (esquema en versión {})", resultado.migrationsExecuted, flyway.info().current()?.version)
+    }
+
+    /** Ejecuta [bloque] en una transacción, fuera del hilo de las corrutinas de Ktor (JDBC es bloqueante). */
+    suspend fun <T> tx(bloque: JdbcTransaction.() -> T): T =
+        withContext(Dispatchers.IO) { transaction(database) { bloque() } }
 
     companion object {
         private val log = LoggerFactory.getLogger(BaseDatos::class.java)
