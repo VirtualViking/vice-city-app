@@ -2,11 +2,17 @@ package vicecity.servidor
 
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
+import vicecity.compartido.CodigosError
+import vicecity.compartido.ErrorApi
 import vicecity.compartido.EstadoBaseDatos
 import vicecity.compartido.Rutas
 import vicecity.compartido.Salud
@@ -35,6 +41,17 @@ class SaludTest {
         application { modulo(config, baseDatos = null) }
         val respuesta = client.get(Rutas.SALUD) { header(HttpHeaders.Origin, "https://virtualviking.github.io") }
         assertEquals("https://virtualviking.github.io", respuesta.headers[HttpHeaders.AccessControlAllowOrigin])
+    }
+
+    @Test
+    fun `sin base de datos las rutas que la necesitan responden 503`() = testApplication {
+        application { modulo(config, baseDatos = null) }
+        val respuesta = client.post(Rutas.LOGIN) {
+            contentType(ContentType.Application.Json)
+            setBody("""{"email":"a@b.co","password":"x"}""")
+        }
+        assertEquals(HttpStatusCode.ServiceUnavailable, respuesta.status)
+        assertEquals(CodigosError.BASE_DATOS_NO_DISPONIBLE, Json.decodeFromString<ErrorApi>(respuesta.bodyAsText()).codigo)
     }
 
     @Test
