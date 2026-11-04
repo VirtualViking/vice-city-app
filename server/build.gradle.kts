@@ -55,4 +55,8 @@ dependencies {
 tasks.test {
     // Las pruebas de integración usan PostgreSQL real si TEST_DATABASE_URL está definida
     environment("TEST_DATABASE_URL", System.getenv("TEST_DATABASE_URL") ?: "")
+
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
 }
