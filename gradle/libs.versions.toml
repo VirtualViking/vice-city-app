@@ -10,6 +10,7 @@ hikari = "7.1.0"
 logback = "1.6.6"
 flyway = "13.12.0"
 bcrypt = "0.10.2"
+zxing = "3.5.4"
 # Fuerzan versiones corregidas de dependencias transitivas (ver server/build.gradle.kts)
 netty = "4.2.20.Final"
 java-jwt = "4.6.2"
@@ -43,6 +44,9 @@ flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", versio
 bcrypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
 ktor-server-auth = { module = "io.ktor:ktor-server-auth", version.ref = "ktor" }
 ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 netty-bom = { module = "io.netty:netty-bom", version.ref = "netty" }
 java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }

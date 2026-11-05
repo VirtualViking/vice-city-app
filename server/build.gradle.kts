@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "vicecity"
-version = "0.2.0"
+version = "0.3.0"
 
 kotlin {
     jvmToolchain(21)
@@ -36,6 +36,9 @@ dependencies {
     implementation(libs.bcrypt)
     implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.auth.jwt)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.zxing.core)
     implementation(libs.postgresql)
     implementation(libs.hikari)
     implementation(libs.logback)
