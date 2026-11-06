@@ -1,29 +1,20 @@
 package vicecity.servidor
 
-import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.testing.ApplicationTestBuilder
-import io.ktor.server.testing.testApplication
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import org.junit.Assume.assumeTrue
 import vicecity.compartido.CierreSesion
 import vicecity.compartido.CodigosError
-import vicecity.compartido.ErrorApi
 import vicecity.compartido.EstadoSesion
 import vicecity.compartido.ListaSesiones
 import vicecity.compartido.LoginRespuesta
@@ -32,15 +23,12 @@ import vicecity.compartido.Modo
 import vicecity.compartido.Rol
 import vicecity.compartido.Rutas
 import vicecity.compartido.SesionActiva
-import vicecity.compartido.SesionDto
 import vicecity.servidor.datos.Establecimientos
 import vicecity.servidor.datos.Eventos
 import vicecity.servidor.datos.Personal
-import vicecity.servidor.seguridad.Claves
 import vicecity.servidor.servicios.Inicializador
 import java.time.Instant
 import java.util.UUID
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -48,41 +36,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/**
- * Pruebas de integración de la entrega 1.1 (HU-02 y HU-03) contra un PostgreSQL real.
- * Se omiten si TEST_DATABASE_URL no está definida. Cada prueba BORRA la base y parte de cero,
- * por eso el nombre de la base debe terminar en _test (nunca la de desarrollo ni la de Neon).
- */
-class AccesoSesionesTest {
-    private val url = System.getenv("TEST_DATABASE_URL")?.takeIf { it.isNotBlank() }
-
-    private val config = Configuracion(
-        urlBaseDatos = url,
-        origenesPermitidos = Configuracion.leerOrigenes("http://localhost:8080"),
-        youtubeApiKey = null,
-        jwtSecreto = "secreto-de-pruebas-con-longitud-suficiente",
-        adminEmail = "Admin@ViceCity.test",
-        adminPassword = "clave-admin-123",
-        adminNombre = "Admin de pruebas",
-        establecimientoNombre = "Bar de pruebas",
-    )
-
-    private lateinit var bd: BaseDatos
-
-    @BeforeTest
-    fun preparar() {
-        assumeTrue("TEST_DATABASE_URL no está definida: se omiten las pruebas de integración", url != null)
-        // Las pruebas borran la base completa: solo se permiten bases cuyo nombre termine en _test
-        val nombreBase = url!!.substringAfterLast('/').substringBefore('?')
-        check(nombreBase.endsWith("_test")) { "TEST_DATABASE_URL debe apuntar a una base de pruebas (nombre terminado en _test), no a '$nombreBase'" }
-        bd = compartida ?: BaseDatos.conectar(url)!!.also { compartida = it }
-        transaction(bd.database) {
-            exec("DROP SCHEMA public CASCADE")
-            exec("CREATE SCHEMA public")
-        }
-        bd.migrar()
-        Inicializador.ejecutar(bd, config)
-    }
+/** Pruebas de integración de la entrega 1.1 (HU-02 y HU-03) contra un PostgreSQL real. */
+class AccesoSesionesTest : PruebaIntegracion() {
 
     // ---------- Esquema y datos iniciales
 
@@ -248,58 +203,7 @@ class AccesoSesionesTest {
 
     // ---------- Ayudas
 
-    private class Contexto(val cliente: HttpClient)
-
-    private fun conApp(prueba: suspend Contexto.() -> Unit) = testApplication {
-        application { modulo(config, bd) }
-        Contexto(clienteJson()).prueba()
-    }
-
-    private fun ApplicationTestBuilder.clienteJson() = createClient {
-        install(ContentNegotiation) { json() }
-    }
-
-    private suspend fun Contexto.login(email: String, clave: String): String {
-        val r = cliente.post(Rutas.LOGIN) { json(LoginSolicitud(email, clave)) }
-        assertEquals(HttpStatusCode.OK, r.status)
-        return r.body<LoginRespuesta>().token
-    }
-
-    private suspend fun Contexto.loginAdmin() = login("admin@vicecity.test", "clave-admin-123")
-
-    private suspend fun Contexto.abrir(token: String): SesionDto {
-        val r = cliente.post(Rutas.SESIONES) { bearerAuth(token) }
-        assertEquals(HttpStatusCode.Created, r.status)
-        return r.body()
-    }
-
-    private suspend fun error(r: HttpResponse, estado: HttpStatusCode, codigo: String): ErrorApi {
-        assertEquals(estado, r.status)
-        val e = r.body<ErrorApi>()
-        assertEquals(codigo, e.codigo)
-        return e
-    }
-
-    private fun HttpRequestBuilder.json(cuerpo: LoginSolicitud) {
-        contentType(ContentType.Application.Json)
-        setBody(cuerpo)
-    }
-
-    private fun crearPersonal(email: String, clave: String, rol: Rol, establecimiento: UUID? = null) = transaction(bd.database) {
-        val est = establecimiento ?: Establecimientos.selectAll().first()[Establecimientos.id]
-        Personal.insert {
-            it[id] = UUID.randomUUID()
-            it[establecimientoId] = est
-            it[nombre] = email.substringBefore('@')
-            it[Personal.email] = email
-            it[passwordHash] = Claves.hash(clave)
-            it[Personal.rol] = rol.name
-            it[activo] = true
-            it[creadoEn] = Instant.now()
-        }
-    }
-
-    /** Solicitud de prueba insertada directamente (los endpoints de solicitudes llegan en la entrega 1.2). */
+    /** Solicitud de prueba insertada directamente (los endpoints de solicitudes llegan en una entrega posterior). */
     private fun crearSolicitud(sesionId: UUID, videoId: String, estado: String) = transaction(bd.database) {
         val hash = "a".repeat(64)
         exec("INSERT INTO dispositivo (hash) VALUES ('$hash') ON CONFLICT DO NOTHING")
@@ -308,9 +212,5 @@ class AccesoSesionesTest {
             "INSERT INTO solicitud (id, sesion_id, video_id, dispositivo_hash, estado, solicitada_en) " +
                     "VALUES ('${UUID.randomUUID()}', '$sesionId', '$videoId', '$hash', '$estado', now() - interval '10 minutes')"
         )
-    }
-
-    private companion object {
-        var compartida: BaseDatos? = null
     }
 }
