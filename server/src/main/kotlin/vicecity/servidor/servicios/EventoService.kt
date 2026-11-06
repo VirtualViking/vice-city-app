@@ -2,7 +2,9 @@ package vicecity.servidor.servicios
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import vicecity.servidor.datos.Eventos
 import java.time.Instant
 import java.util.UUID
@@ -31,6 +33,10 @@ enum class TipoEvento {
  * Debe llamarse dentro de la misma transacción que el cambio que describe: si la operación falla, no queda evento.
  */
 object EventoService {
+    /**
+     * Inserta el evento. Con [soloUnaVez], si ya existe uno con el mismo [idIdempotencia] no hace nada
+     * (por ejemplo, ACCESO_SESION se registra una sola vez por dispositivo y sesión).
+     */
     fun registrar(
         tipo: TipoEvento,
         establecimientoId: UUID,
@@ -41,8 +47,9 @@ object EventoService {
         datos: JsonObject = buildJsonObject { },
         idIdempotencia: UUID = UUID.randomUUID(),
         ocurridoEn: Instant = Instant.now(),
+        soloUnaVez: Boolean = false,
     ) {
-        Eventos.insert {
+        val valores: Eventos.(UpdateBuilder<*>) -> Unit = {
             it[Eventos.idIdempotencia] = idIdempotencia
             it[Eventos.tipo] = tipo.name
             it[Eventos.establecimientoId] = establecimientoId
@@ -53,5 +60,6 @@ object EventoService {
             it[Eventos.ocurridoEn] = ocurridoEn
             it[Eventos.datos] = datos
         }
+        if (soloUnaVez) Eventos.insertIgnore(valores) else Eventos.insert(valores)
     }
 }

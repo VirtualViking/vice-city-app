@@ -28,14 +28,17 @@ import vicecity.compartido.ErrorApi
 import vicecity.compartido.Rutas
 import vicecity.compartido.Salud
 import vicecity.servidor.rutas.rutasAuth
+import vicecity.servidor.rutas.rutasCliente
 import vicecity.servidor.rutas.rutasSesiones
+import vicecity.servidor.seguridad.HuellaDispositivo
 import vicecity.servidor.seguridad.ServicioJwt
+import vicecity.servidor.servicios.AccesoService
 import vicecity.servidor.servicios.AuthService
 import vicecity.servidor.servicios.Inicializador
 import vicecity.servidor.servicios.SesionService
 import kotlin.time.Duration.Companion.seconds
 
-const val VERSION = "0.2.0"
+const val VERSION = "0.3.0"
 
 fun main() {
     // Render asigna el puerto en la variable PORT; en local se usa 8081
@@ -54,10 +57,12 @@ fun main() {
 /** Configura plugins y rutas. Recibe la base de datos para poder probarlo sin PostgreSQL. */
 fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?) {
     val jwt = ServicioJwt(config.jwtSecreto)
+    val huella = HuellaDispositivo(config.dispositivoSecreto)
     // Sin base de datos, las rutas que la necesitan responden 503
     fun bd(): BaseDatos = baseDatos ?: throw baseDatosNoDisponible()
     val auth by lazy { AuthService(bd(), jwt) }
     val sesiones by lazy { SesionService(bd()) }
+    val acceso by lazy { AccesoService(bd()) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -106,5 +111,6 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?) {
         }
         rutasAuth { auth }
         rutasSesiones { sesiones }
+        rutasCliente(huella) { acceso }
     }
 }

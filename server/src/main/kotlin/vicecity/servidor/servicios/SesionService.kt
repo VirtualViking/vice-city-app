@@ -20,6 +20,7 @@ import vicecity.compartido.Modo
 import vicecity.compartido.SesionDto
 import vicecity.servidor.BaseDatos
 import vicecity.servidor.conflicto
+import vicecity.servidor.datos.RepositorioEstablecimientos
 import vicecity.servidor.datos.Sesiones
 import vicecity.servidor.datos.Solicitudes
 import vicecity.servidor.datos.Votos
@@ -34,7 +35,7 @@ class SesionService(private val bd: BaseDatos) {
 
     suspend fun abrir(usuario: UsuarioPersonal): SesionDto = try {
         bd.tx {
-            val abierta = sesionAbierta(usuario.establecimientoId)
+            val abierta = RepositorioEstablecimientos.sesionAbierta(usuario.establecimientoId)
             if (abierta != null) {
                 throw conflicto(CodigosError.SESION_YA_ABIERTA, "Ya hay una sesión abierta", mapOf("sesionId" to abierta[Sesiones.id].toString()))
             }
@@ -114,7 +115,7 @@ class SesionService(private val bd: BaseDatos) {
 
     /** Sesión abierta del establecimiento del usuario, o null. */
     suspend fun activa(usuario: UsuarioPersonal): SesionDto? = bd.tx {
-        sesionAbierta(usuario.establecimientoId)?.let(::aDto)
+        RepositorioEstablecimientos.sesionAbierta(usuario.establecimientoId)?.let(::aDto)
     }
 
     /** Sesiones del establecimiento, más recientes primero. [desde] y [hasta] filtran por inicio. */
@@ -130,11 +131,6 @@ class SesionService(private val bd: BaseDatos) {
             .limit(100)
             .map(::aDto)
     }
-
-    private fun sesionAbierta(establecimientoId: UUID): ResultRow? =
-        Sesiones.selectAll()
-            .where { (Sesiones.establecimientoId eq establecimientoId) and (Sesiones.estado eq EstadoSesion.ABIERTA.name) }
-            .singleOrNull()
 
     /** Una sesión de otro establecimiento se trata como inexistente. */
     private fun buscar(establecimientoId: UUID, sesionId: UUID): ResultRow =
