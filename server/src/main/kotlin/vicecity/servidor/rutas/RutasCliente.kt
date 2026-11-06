@@ -9,16 +9,27 @@ import vicecity.compartido.HEADER_DISPOSITIVO
 import vicecity.servidor.datosInvalidos
 import vicecity.servidor.seguridad.HuellaDispositivo
 import vicecity.servidor.servicios.AccesoService
+import vicecity.servidor.servicios.BusquedaService
 import java.util.UUID
 
 private const val ESTABLECIMIENTO = "$API_PREFIJO/establecimientos/{codigoQr}"
 private val FORMATO_UUID = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 /** Endpoints del cliente que abre la app desde el QR. Públicos, pero exigen X-Dispositivo-Id. */
-fun Route.rutasCliente(huella: HuellaDispositivo, acceso: () -> AccesoService) {
+fun Route.rutasCliente(
+    huella: HuellaDispositivo,
+    acceso: () -> AccesoService,
+    busqueda: () -> BusquedaService,
+) {
     get(ESTABLECIMIENTO) {
         val dispositivo = call.dispositivoHash(huella)
         call.respond(acceso().acceder(call.codigoQr(), dispositivo))
+    }
+
+    get("$ESTABLECIMIENTO/busqueda") {
+        val dispositivo = call.dispositivoHash(huella)
+        val texto = call.request.queryParameters["q"] ?: throw datosInvalidos("q", "Falta el texto a buscar")
+        call.respond(busqueda().buscar(call.codigoQr(), texto, dispositivo))
     }
 }
 

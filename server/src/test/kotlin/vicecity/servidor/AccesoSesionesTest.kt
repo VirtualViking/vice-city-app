@@ -37,7 +37,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Pruebas de integración de la entrega 1.1 (HU-02 y HU-03) contra un PostgreSQL real. */
-class AccesoSesionesTest : PruebaIntegracion() {
+class   AccesoSesionesTest : PruebaIntegracion() {
 
     // ---------- Esquema y datos iniciales
 

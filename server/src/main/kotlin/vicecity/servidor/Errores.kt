@@ -2,6 +2,7 @@ package vicecity.servidor
 
 import io.ktor.http.HttpStatusCode
 import vicecity.compartido.CodigosError
+import java.time.Instant
 
 /** Error de negocio que se convierte en la respuesta estándar ErrorApi (contrato de la API). */
 class ApiExcepcion(
@@ -25,3 +26,16 @@ fun conflicto(codigo: String, mensaje: String, detalles: Map<String, String> = e
 
 fun baseDatosNoDisponible() =
     ApiExcepcion(HttpStatusCode.ServiceUnavailable, CodigosError.BASE_DATOS_NO_DISPONIBLE, "La base de datos no está configurada")
+
+fun limiteBusquedas(reintentarEn: Instant) =
+    ApiExcepcion(
+        HttpStatusCode.TooManyRequests, CodigosError.LIMITE_BUSQUEDAS,
+        "Hiciste muchas búsquedas nuevas seguidas. Prueba con las sugerencias o espera un momento.",
+        mapOf("reintentarEn" to reintentarEn.toString()),
+    )
+
+fun youtubeNoDisponible() =
+    ApiExcepcion(
+        HttpStatusCode.ServiceUnavailable, CodigosError.YOUTUBE_NO_DISPONIBLE,
+        "La búsqueda en YouTube no está disponible en este momento. Prueba con las sugerencias.",
+    )
