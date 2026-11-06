@@ -37,6 +37,7 @@ import vicecity.servidor.integraciones.CatalogoVideos
 import vicecity.servidor.integraciones.YouTubeCatalogo
 import vicecity.servidor.rutas.rutasAuth
 import vicecity.servidor.rutas.rutasCliente
+import vicecity.servidor.rutas.rutasEstablecimiento
 import vicecity.servidor.rutas.rutasSesiones
 import vicecity.servidor.seguridad.HuellaDispositivo
 import vicecity.servidor.seguridad.ServicioJwt
@@ -44,6 +45,7 @@ import vicecity.servidor.servicios.AccesoService
 import vicecity.servidor.servicios.AuthService
 import vicecity.servidor.servicios.BusquedaService
 import vicecity.servidor.servicios.Inicializador
+import vicecity.servidor.servicios.QrService
 import vicecity.servidor.servicios.SesionService
 import vicecity.servidor.servicios.SugerenciaService
 import kotlin.time.Duration.Companion.seconds
@@ -79,6 +81,7 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?, catalogo: C
     val catalogoVideos = catalogo ?: catalogoDesde(config)
     val busqueda by lazy { BusquedaService(bd(), catalogoVideos, config.reglasBusqueda) }
     val sugerencias by lazy { SugerenciaService(bd(), config.reglasBusqueda) }
+    val qr by lazy { QrService(bd(), config.webUrl) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -128,6 +131,7 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?, catalogo: C
         rutasAuth { auth }
         rutasSesiones { sesiones }
         rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias })
+        rutasEstablecimiento { qr }
     }
 }
 
