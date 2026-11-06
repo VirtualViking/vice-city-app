@@ -1,6 +1,10 @@
 package vicecity.servidor.datos
 
+import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.plus
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.upsert
 import java.time.Instant
 import java.util.UUID
@@ -24,4 +28,12 @@ object RepositorioTerminos {
             it[ultimaBusqueda] = ahora
         }
     }
+
+    /** Textos buscados en el establecimiento que empiezan por [prefijo] (normalizado), los más buscados primero. */
+    fun sugerir(establecimientoId: UUID, prefijo: String, limite: Int): List<String> =
+        TerminosBuscados.select(TerminosBuscados.texto)
+            .where { (TerminosBuscados.establecimientoId eq establecimientoId) and Coincidencias.empiezaPor(TerminosBuscados.termino, prefijo) }
+            .orderBy(TerminosBuscados.veces to SortOrder.DESC, TerminosBuscados.ultimaBusqueda to SortOrder.DESC)
+            .limit(limite)
+            .map { it[TerminosBuscados.texto] }
 }

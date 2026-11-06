@@ -2,9 +2,13 @@ package vicecity.servidor.datos
 
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.upsert
 import vicecity.compartido.ResultadoBusqueda
@@ -57,6 +61,25 @@ object RepositorioCanciones {
             .orderBy(Canciones.actualizadoEn, SortOrder.DESC)
             .limit(limite)
             .toList()
+
+    /** Artistas con alguna palabra que empiece por [termino], los que tienen más canciones guardadas primero. */
+    fun sugerirArtistas(termino: String, limite: Int): List<String> {
+        val canciones = Canciones.videoId.count()
+        return Canciones.select(Canciones.artista, canciones)
+            .where { Canciones.artista.isNotNull() and Coincidencias.algunaPalabraEmpiezaPor(Canciones.artistaNormalizado, termino) }
+            .groupBy(Canciones.artista)
+            .orderBy(canciones, SortOrder.DESC)
+            .limit(limite)
+            .mapNotNull { it[Canciones.artista] }
+    }
+
+    /** Títulos de canciones con alguna palabra que empiece por [termino], las más recientes primero. */
+    fun sugerirTitulos(termino: String, limite: Int): List<String> =
+        Canciones.select(Canciones.titulo)
+            .where { Coincidencias.algunaPalabraEmpiezaPor(Canciones.tituloNormalizado, termino) }
+            .orderBy(Canciones.actualizadoEn, SortOrder.DESC)
+            .limit(limite)
+            .map { it[Canciones.titulo] }
 
     fun aResultado(fila: ResultRow) = ResultadoBusqueda(
         videoId = fila[Canciones.videoId],

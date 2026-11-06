@@ -10,6 +10,7 @@ import vicecity.servidor.datosInvalidos
 import vicecity.servidor.seguridad.HuellaDispositivo
 import vicecity.servidor.servicios.AccesoService
 import vicecity.servidor.servicios.BusquedaService
+import vicecity.servidor.servicios.SugerenciaService
 import java.util.UUID
 
 private const val ESTABLECIMIENTO = "$API_PREFIJO/establecimientos/{codigoQr}"
@@ -20,6 +21,7 @@ fun Route.rutasCliente(
     huella: HuellaDispositivo,
     acceso: () -> AccesoService,
     busqueda: () -> BusquedaService,
+    sugerencias: () -> SugerenciaService,
 ) {
     get(ESTABLECIMIENTO) {
         val dispositivo = call.dispositivoHash(huella)
@@ -30,6 +32,12 @@ fun Route.rutasCliente(
         val dispositivo = call.dispositivoHash(huella)
         val texto = call.request.queryParameters["q"] ?: throw datosInvalidos("q", "Falta el texto a buscar")
         call.respond(busqueda().buscar(call.codigoQr(), texto, dispositivo))
+    }
+
+    // Se llama mientras el cliente escribe: valida el dispositivo pero no escribe en la base
+    get("$ESTABLECIMIENTO/sugerencias") {
+        call.dispositivoHash(huella)
+        call.respond(sugerencias().sugerir(call.codigoQr(), call.request.queryParameters["q"].orEmpty()))
     }
 }
 

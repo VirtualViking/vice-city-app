@@ -45,6 +45,7 @@ import vicecity.servidor.servicios.AuthService
 import vicecity.servidor.servicios.BusquedaService
 import vicecity.servidor.servicios.Inicializador
 import vicecity.servidor.servicios.SesionService
+import vicecity.servidor.servicios.SugerenciaService
 import kotlin.time.Duration.Companion.seconds
 
 const val VERSION = "0.3.0"
@@ -77,6 +78,7 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?, catalogo: C
     val acceso by lazy { AccesoService(bd()) }
     val catalogoVideos = catalogo ?: catalogoDesde(config)
     val busqueda by lazy { BusquedaService(bd(), catalogoVideos, config.reglasBusqueda) }
+    val sugerencias by lazy { SugerenciaService(bd(), config.reglasBusqueda) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -125,7 +127,7 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?, catalogo: C
         }
         rutasAuth { auth }
         rutasSesiones { sesiones }
-        rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda })
+        rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias })
     }
 }
 
