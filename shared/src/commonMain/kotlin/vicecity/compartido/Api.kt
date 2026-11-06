@@ -20,4 +20,8 @@ object Rutas {
     fun establecimiento(codigoQr: String) = "$API_PREFIJO/establecimientos/$codigoQr"
     fun busqueda(codigoQr: String) = "${establecimiento(codigoQr)}/busqueda"
     fun sugerencias(codigoQr: String) = "${establecimiento(codigoQr)}/sugerencias"
+
+
+    /** Miniatura del video servida por el backend: así la web puede dibujarla sin depender del CORS de YouTube. */
+    fun miniatura(videoId: String) = "$API_PREFIJO/miniaturas/$videoId"
 }
