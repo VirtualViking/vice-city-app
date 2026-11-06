@@ -70,7 +70,8 @@ fun main() {
  * Configura plugins y rutas. Recibe la base de datos y el catálogo de videos para poder probarlo
  * sin PostgreSQL y sin gastar cupo de YouTube. Sin [catalogo], usa YouTube si hay YOUTUBE_API_KEY.
  */
-fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?, catalogo: CatalogoVideos? = null) {
+fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?, catalogo: CatalogoVideos? = null, http: HttpClient = clienteHttpExterno())   {
+
     val jwt = ServicioJwt(config.jwtSecreto)
     val huella = HuellaDispositivo(config.dispositivoSecreto)
     // Sin base de datos, las rutas que la necesitan responden 503
@@ -133,6 +134,12 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?, catalogo: C
         rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias })
         rutasEstablecimiento { qr }
     }
+}
+
+/** Cliente HTTP para llamar a YouTube desde el servidor. */
+private fun clienteHttpExterno() = HttpClient(CIO) {
+    install(ContenidoCliente) { json(Json { ignoreUnknownKeys = true }) }
+    install(HttpTimeout) { requestTimeoutMillis = 10_000 }
 }
 
 /** YouTube si hay clave; si no, un catálogo que siempre responde "no disponible". */
