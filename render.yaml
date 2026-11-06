@@ -25,6 +25,10 @@ services:
         value: https://virtualviking.github.io
       - key: JWT_SECRETO
         generateValue: true          # Render genera una clave aleatoria
+      - key: DISPOSITIVO_SECRETO
+        generateValue: true          # clave del HMAC del dispositivo; no cambiarla después
+      - key: WEB_URL
+        value: https://virtualviking.github.io/vice-city-app/
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
