@@ -52,6 +52,9 @@ abstract class PruebaIntegracion {
 
     protected lateinit var bd: BaseDatos
 
+    /** YouTube simulado: ninguna prueba gasta cupo real. */
+    protected val catalogo = CatalogoFalso()
+
     @BeforeTest
     fun prepararBase() {
         assumeTrue("TEST_DATABASE_URL no está definida: se omiten las pruebas de integración", url != null)
@@ -70,9 +73,9 @@ abstract class PruebaIntegracion {
 
     protected class Contexto(val cliente: HttpClient)
 
-    /** Levanta el servidor en memoria con la base de pruebas y ejecuta [prueba] con un cliente JSON. */
-    protected open fun conApp(prueba: suspend Contexto.() -> Unit) = testApplication {
-        application { modulo(config, bd) }
+    /** Levanta el servidor en memoria con la base de pruebas y el catálogo simulado, y ejecuta [prueba] con un cliente JSON. */
+    protected fun conApp(prueba: suspend Contexto.() -> Unit) = testApplication {
+        application { modulo(config, bd, catalogo) }
         Contexto(createClient { install(ContentNegotiation) { json() } }).prueba()
     }
 

@@ -1,10 +1,15 @@
 package vicecity.servidor
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ContenidoCliente
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.engine.embeddedServer
@@ -27,15 +32,22 @@ import vicecity.compartido.CodigosError
 import vicecity.compartido.ErrorApi
 import vicecity.compartido.Rutas
 import vicecity.compartido.Salud
+import vicecity.servidor.integraciones.CatalogoSinConfigurar
+import vicecity.servidor.integraciones.CatalogoVideos
+import vicecity.servidor.integraciones.YouTubeCatalogo
 import vicecity.servidor.rutas.rutasAuth
 import vicecity.servidor.rutas.rutasCliente
+import vicecity.servidor.rutas.rutasEstablecimiento
 import vicecity.servidor.rutas.rutasSesiones
 import vicecity.servidor.seguridad.HuellaDispositivo
 import vicecity.servidor.seguridad.ServicioJwt
 import vicecity.servidor.servicios.AccesoService
 import vicecity.servidor.servicios.AuthService
+import vicecity.servidor.servicios.BusquedaService
 import vicecity.servidor.servicios.Inicializador
+import vicecity.servidor.servicios.QrService
 import vicecity.servidor.servicios.SesionService
+import vicecity.servidor.servicios.SugerenciaService
 import kotlin.time.Duration.Companion.seconds
 
 const val VERSION = "0.3.0"
@@ -54,8 +66,11 @@ fun main() {
     }.start(wait = true)
 }
 
-/** Configura plugins y rutas. Recibe la base de datos para poder probarlo sin PostgreSQL. */
-fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?) {
+/**
+ * Configura plugins y rutas. Recibe la base de datos y el catálogo de videos para poder probarlo
+ * sin PostgreSQL y sin gastar cupo de YouTube. Sin [catalogo], usa YouTube si hay YOUTUBE_API_KEY.
+ */
+fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?, catalogo: CatalogoVideos? = null) {
     val jwt = ServicioJwt(config.jwtSecreto)
     val huella = HuellaDispositivo(config.dispositivoSecreto)
     // Sin base de datos, las rutas que la necesitan responden 503
@@ -63,6 +78,10 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?) {
     val auth by lazy { AuthService(bd(), jwt) }
     val sesiones by lazy { SesionService(bd()) }
     val acceso by lazy { AccesoService(bd()) }
+    val catalogoVideos = catalogo ?: catalogoDesde(config)
+    val busqueda by lazy { BusquedaService(bd(), catalogoVideos, config.reglasBusqueda) }
+    val sugerencias by lazy { SugerenciaService(bd(), config.reglasBusqueda) }
+    val qr by lazy { QrService(bd(), config.webUrl) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -111,6 +130,20 @@ fun Application.modulo(config: Configuracion, baseDatos: BaseDatos?) {
         }
         rutasAuth { auth }
         rutasSesiones { sesiones }
-        rutasCliente(huella) { acceso }
+        rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias })
+        rutasEstablecimiento { qr }
     }
+}
+
+/** YouTube si hay clave; si no, un catálogo que siempre responde "no disponible". */
+private fun Application.catalogoDesde(config: Configuracion): CatalogoVideos {
+    val clave = config.youtubeApiKey ?: return CatalogoSinConfigurar().also {
+        environment.log.warn("YOUTUBE_API_KEY no está definida: la búsqueda solo usará las canciones ya guardadas")
+    }
+    val http = HttpClient(CIO) {
+        install(ContenidoCliente) { json(Json { ignoreUnknownKeys = true }) }
+        install(HttpTimeout) { requestTimeoutMillis = 10_000 }
+    }
+    monitor.subscribe(ApplicationStopped) { http.close() }
+    return YouTubeCatalogo(clave, http)
 }

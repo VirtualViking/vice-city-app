@@ -52,13 +52,13 @@ dependencies {
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)
-    testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.ktor.client.mock)
 }
 
 tasks.test {
     // Las pruebas de integración usan PostgreSQL real si TEST_DATABASE_URL está definida
     environment("TEST_DATABASE_URL", System.getenv("TEST_DATABASE_URL") ?: "")
-
+    // Muestra cada prueba en la consola (y en el log del CI) con su resultado
     testLogging {
         events("passed", "skipped", "failed")
     }
