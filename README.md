@@ -2,7 +2,7 @@
 
 PMV para pedir y votar la música de un establecimiento mediante un código QR. Proyecto nuclear de Construcción de Aplicaciones Móviles y Big Data.
 
-Estado: **módulo de acceso y búsqueda para clientes**. El servidor ya resuelve el QR, identifica el dispositivo, busca en YouTube con caché y sugiere mientras se escribe; las pantallas de la web llegan en el siguiente Pull Request.
+Estado: **módulo de acceso y búsqueda para clientes**, completo: código QR, acceso desde el QR, identificación del dispositivo, búsqueda en YouTube con caché, autocompletado y pantallas para celular y tableta.
 
 ## Arquitectura
 
@@ -20,13 +20,13 @@ vice-city-app/
 │   ├── Application.kt, Configuracion.kt, BaseDatos.kt, Errores.kt
 │   ├── datos/          # tablas de Exposed y repositorios (consultas SQL)
 │   ├── dominio/        # reglas puras: normalizar textos, deducir el artista, enlace del QR
-│   ├── integraciones/  # servicios externos detrás de interfaces: YouTube, generador de QR
+│   ├── integraciones/  # servicios externos detrás de interfaces: YouTube, generador de QR, miniaturas
 │   ├── seguridad/      # contraseñas (bcrypt), tokens JWT y huella del dispositivo (HMAC)
 │   ├── servicios/      # reglas de negocio: acceso, búsqueda, sugerencias, QR, sesiones, eventos
 │   └── rutas/          # endpoints REST
 ├── server/src/main/resources/db/migracion/            # migraciones Flyway (esquema SQL)
 ├── server/src/test/kotlin/vicecity/servidor/           # pruebas (unitarias y de integración)
-├── webApp/src/webMain/kotlin/vicecity/web/             # App.kt, ClienteApi.kt, Configuracion.kt, main.kt
+├── webApp/src/webMain/kotlin/vicecity/web/             # App.kt, main.kt; datos/ (API, dispositivo), tema/, componentes/, acceso/, busqueda/
 ├── webApp/src/webMain/resources/                       # index.html, config.js, manifest, sw.js, íconos
 ├── .github/workflows/ci.yml                            # pruebas del servidor en cada push
 ├── .github/workflows/pages.yml                         # publica la web en GitHub Pages
@@ -66,6 +66,7 @@ Netty (4.2.20) y java-jwt (4.6.2) se fuerzan en `server/build.gradle.kts` porque
 | `GET /api/v1/establecimientos/{codigoQr}` | Cliente | Nombre del establecimiento y su sesión abierta, si hay (RF-01) |
 | `GET /api/v1/establecimientos/{codigoQr}/busqueda?q=` | Cliente | Videos musicales con título, artista, canal, duración y miniatura (RF-04) |
 | `GET /api/v1/establecimientos/{codigoQr}/sugerencias?q=` | Cliente | Autocompletado con datos propios, sin llamar a YouTube |
+| `GET /api/v1/miniaturas/{videoId}` | Público | Miniatura JPEG del video (el navegador la guarda una semana). La web no puede dibujar imágenes de YouTube directamente, porque YouTube no permite CORS |
 
 Las rutas de cliente exigen el encabezado `X-Dispositivo-Id` con un UUID (lo genera la app). Las rutas `/admin` exigen el encabezado `Authorization: Bearer <token>`. Los errores siguen el formato `{"codigo": "...", "mensaje": "..."}` del contrato.
 
@@ -103,8 +104,10 @@ El QR lleva a `https://virtualviking.github.io/vice-city-app/?e=<código del est
 ```powershell
 $clave = Read-Host "Contraseña"
 $login = Invoke-RestMethod -Method Post -Uri "https://vice-city-app.onrender.com/api/v1/auth/login" -ContentType "application/json" -Body (@{ email = "TU_ADMIN_EMAIL"; password = $clave } | ConvertTo-Json)
-Invoke-WebRequest -Uri "https://vice-city-app.onrender.com/api/v1/admin/establecimiento/qr?tamano=1024" -Headers @{ Authorization = "Bearer $($login.token)" } -OutFile "qr-vice-city.png"
+Invoke-WebRequest -Uri "https://vice-city-app.onrender.com/api/v1/admin/establecimiento/qr?tamano=1024" -Headers @{ Authorization = "Bearer $($login.token)" } -OutFile "$([Environment]::GetFolderPath('Desktop'))\qr-vice-city.png"
 ```
+
+La imagen queda en el escritorio, fuera de la carpeta del proyecto, para que no termine en un commit.
 
 Para imprimirlo: mínimo 5 × 5 cm, en blanco y negro, sin recortar el margen blanco, y probarlo con varios celulares antes de pegarlo. Tiene corrección de errores alta: se sigue leyendo aunque se ensucie o se doble un poco.
 
@@ -131,7 +134,7 @@ Para imprimirlo: mínimo 5 × 5 cm, en blanco y negro, sin recortar el margen bl
    ```powershell
    ./gradlew :webApp:wasmJsBrowserDevelopmentRun
    ```
-   Abre <http://localhost:8080>. Debe mostrar Servidor "Responde" y Base de datos "Conectada".
+   Abre `http://localhost:8080/?e=<código>` con el código QR que aparece en el log del servidor (*Establecimiento creado … con código QR …*). Sin `?e=`, la app pide escanear el QR.
 
 4. **Pruebas del servidor:**
    ```powershell
@@ -184,6 +187,15 @@ Cuota por defecto: 10.000 unidades diarias, pero las búsquedas (`search.list`) 
 
 - 46 pruebas automáticas. Las nuevas cubren el acceso por QR y la identificación del dispositivo, la búsqueda (caché, términos escritos distinto, caché vencida, límites por dispositivo y diario, respaldo local, YouTube caído), el autocompletado (tildes, cualquier palabra, comodines), el QR (se decodifica con un lector real y solo lo descarga el ADMIN) y el adaptador de YouTube contra respuestas simuladas (filtros, orden, clave en header y nunca en la URL, cuota agotada).
 - Las pruebas no llaman a YouTube: usan un catálogo simulado. La primera búsqueda real se comprueba en Render con la clave configurada.
+
+## Verificación del módulo de acceso y búsqueda (web)
+
+- **Diseño "atardecer neón":** el encabezado (cielo, sol, ciudad y palmeras) se dibuja con código en Compose Canvas, sin imágenes externas ni arte de terceros. El resto de la pantalla es oscuro para que los resultados se lean bien dentro del establecimiento.
+- **Celular real:** al escanear el QR se abre la app del establecimiento; la búsqueda en YouTube muestra miniatura, título, artista y duración; escribir con el teclado del celular y el botón Buscar funcionan.
+- **Chromium (390 px y 1180 px):** sin código, código inválido, sin conexión con el botón "Volver a intentar", sesión abierta y sin abrir, sugerencias mientras se escribe, búsqueda con el botón Buscar, con Enter y tocando una sugerencia, resultados en 1 y 3 columnas, y aviso cuando YouTube no está disponible. En una prueba anterior también se comprobaron 2 columnas (820 px), el aviso de instalación en iPhone y la reapertura sin `?e=` (la app recuerda el establecimiento).
+- 3 pruebas automáticas más para las miniaturas (49 en total): formato JPEG con caché de una semana y CORS, memoria sin volver a YouTube, e identificadores inválidos o inexistentes.
+- **Alcance:** tocar un resultado todavía no hace nada. Pedir y votar canciones, y verlas en la cola, es el siguiente módulo.
+- **Pendiente de comprobar:** instalar la app en el celular y probarla en una tableta real.
 
 ## Verificación de la entrega 1.1
 
