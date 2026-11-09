@@ -22,23 +22,31 @@ sealed interface EstadoAcceso {
     data object SinCodigo : EstadoAcceso
     data object CodigoInvalido : EstadoAcceso
     data class Error(val mensaje: String) : EstadoAcceso
-    data class Listo(val codigoQr: String, val establecimiento: EstablecimientoPublico) : EstadoAcceso
+    /** [bienvenida]: llegó escaneando el QR en el navegador; antes de buscar se le ofrece instalar la app. */
+    data class Listo(
+        val codigoQr: String,
+        val establecimiento: EstablecimientoPublico,
+        val bienvenida: Boolean = false,
+    ) : EstadoAcceso
 }
 
 /**
  * Resuelve el establecimiento a partir del código del QR. El código llega en la URL (?e=…) al escanear,
  * y se guarda para que la app instalada, que abre sin ese parámetro, siga funcionando.
+ * Cada vez que se escanea el QR en el navegador se muestra primero la bienvenida; en la app instalada, no.
  */
 class ModeloAcceso(private val api: ClienteApi, private val alcance: CoroutineScope) {
     var estado: EstadoAcceso by mutableStateOf(EstadoAcceso.Cargando())
         private set
     private var trabajo: Job? = null
+    private var llegoPorQr = false
 
     fun iniciar() {
         val desdeUrl = Navegador.parametro(PARAMETRO_CODIGO)?.trim()?.lowercase()
         if (desdeUrl != null) {
             Almacen.codigoEstablecimiento = desdeUrl
             Navegador.limpiarParametros()
+            llegoPorQr = true
         }
         val codigo = desdeUrl ?: Almacen.codigoEstablecimiento
         if (codigo == null) {
@@ -51,6 +59,12 @@ class ModeloAcceso(private val api: ClienteApi, private val alcance: CoroutineSc
     /** Vuelve a intentar con el código guardado (botón "Volver a intentar"). */
     fun reintentar() = iniciar()
 
+    /** Deja la bienvenida y pasa a la búsqueda, en el navegador o después de abrir la instalación. */
+    fun continuar() {
+        llegoPorQr = false
+        (estado as? EstadoAcceso.Listo)?.let { estado = it.copy(bienvenida = false) }
+    }
+
     private fun conectar(codigo: String) {
         trabajo?.cancel()
         estado = EstadoAcceso.Cargando()
@@ -60,7 +74,7 @@ class ModeloAcceso(private val api: ClienteApi, private val alcance: CoroutineSc
                 estado = EstadoAcceso.Cargando(lento = true)
             }
             estado = try {
-                EstadoAcceso.Listo(codigo, api.establecimiento(codigo))
+                EstadoAcceso.Listo(codigo, api.establecimiento(codigo), bienvenida = llegoPorQr && !Navegador.estaInstalada)
             } catch (e: ErrorDeApi) {
                 if (e.codigo == CodigosError.NO_ENCONTRADO) {
                     Almacen.codigoEstablecimiento = null
