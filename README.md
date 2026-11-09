@@ -116,16 +116,16 @@ Para imprimirlo: mínimo 5 × 5 cm, en blanco y negro, sin recortar el margen bl
    ```
    Crea las bases `vicecity` y `vicecity_test` (usuario `vicecity`, clave `vicecity`) en el puerto 5432.
 
-2. **Servidor**, en la terminal de IntelliJ (PowerShell):
-   ```powershell
-   $env:DATABASE_URL = "postgresql://vicecity:vicecity@localhost:5432/vicecity"
-   $env:JWT_SECRETO = "una-clave-larga-solo-para-desarrollo-local"
-   $env:ADMIN_EMAIL = "admin@local.test"
-   $env:ADMIN_PASSWORD = "clave-local-123"
-   ./gradlew :server:run
-   ```
-   Si la terminal dice `JAVA_HOME is not set`, define `JAVA_HOME` en las variables de entorno de Windows con la ruta de un JDK 21.
-   Comprueba en el navegador: <http://localhost:8081/api/v1/salud> → `"baseDatos":"CONECTADA"`.
+   2. **Servidor**, en la terminal de IntelliJ (PowerShell):
+      ```powershell
+      $env:DATABASE_URL = "postgresql://vicecity:vicecity@localhost:5432/vicecity"
+      $env:JWT_SECRETO = "una-clave-larga-solo-para-desarrollo-local"
+      $env:ADMIN_EMAIL = "admin@local.test"
+      $env:ADMIN_PASSWORD = "clave-local-123"
+      ./gradlew :server:run
+      ```
+      Si la terminal dice `JAVA_HOME is not set`, define `JAVA_HOME` en las variables de entorno de Windows con la ruta de un JDK 21.
+      Comprueba en el navegador: <http://localhost:8081/api/v1/salud> → `"baseDatos":"CONECTADA"`.
 
 3. **Web**, en otra terminal:
    ```powershell
