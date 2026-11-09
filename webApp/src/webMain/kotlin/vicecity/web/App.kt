@@ -11,12 +11,13 @@ import androidx.compose.ui.Modifier
 import vicecity.web.acceso.EstadoAcceso
 import vicecity.web.acceso.ModeloAcceso
 import vicecity.web.acceso.PantallaAcceso
+import vicecity.web.bienvenida.PantallaBienvenida
 import vicecity.web.busqueda.PantallaBusqueda
 import vicecity.web.datos.ClienteApi
 import vicecity.web.tema.Colores
 import vicecity.web.tema.TemaViceCity
 
-/** Raíz de la app del cliente: primero resuelve el QR (acceso) y después muestra la búsqueda. */
+/** Raíz de la app del cliente: primero resuelve el QR (acceso), luego la bienvenida si llegó por el QR, y después la búsqueda. */
 @Composable
 fun App() {
     val api = remember { ClienteApi() }
@@ -27,7 +28,11 @@ fun App() {
     TemaViceCity {
         Box(Modifier.fillMaxSize().background(Colores.Fondo)) {
             when (val estado = acceso.estado) {
-                is EstadoAcceso.Listo -> PantallaBusqueda(api, estado.codigoQr, estado.establecimiento)
+                is EstadoAcceso.Listo -> if (estado.bienvenida) {
+                    PantallaBienvenida(estado.establecimiento, alContinuar = acceso::continuar)
+                } else {
+                    PantallaBusqueda(api, estado.codigoQr, estado.establecimiento)
+                }
                 else -> PantallaAcceso(estado, alReintentar = acceso::reintentar)
             }
         }

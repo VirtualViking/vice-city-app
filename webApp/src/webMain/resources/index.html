@@ -23,6 +23,22 @@
 
   <script src="config.js"></script>
   <script>
+    // Instalación de la app (Chrome y Edge en Android): el navegador avisa con "beforeinstallprompt" que se puede instalar.
+    // Se guarda ese aviso para abrir la ventana de instalación desde el botón "Descargar esta app" de la bienvenida.
+    var viceCityAvisoInstalacion = null;
+    window.addEventListener('beforeinstallprompt', function (evento) {
+      evento.preventDefault();
+      viceCityAvisoInstalacion = evento;
+    });
+    window.addEventListener('appinstalled', function () { viceCityAvisoInstalacion = null; });
+    function viceCityInstalar() {
+      if (viceCityAvisoInstalacion === null) return false;
+      viceCityAvisoInstalacion.prompt();
+      viceCityAvisoInstalacion = null;
+      return true;
+    }
+  </script>
+  <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js'); });
     }

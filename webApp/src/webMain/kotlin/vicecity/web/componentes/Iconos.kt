@@ -59,3 +59,15 @@ fun IconoInstalar(color: Color, tamano: Dp = 20.dp) = Icono(tamano, color, 2f) {
         color, style = estilo,
     )
 }
+
+@Composable
+fun IconoDescargar(color: Color, tamano: Dp = 20.dp) = Icono(tamano, color, 2f) { e, estilo ->
+    drawLine(color, Offset(12f * e, 3f * e), Offset(12f * e, 15f * e), estilo.width, StrokeCap.Round)
+    drawPath(Path().apply { moveTo(7f * e, 10f * e); lineTo(12f * e, 15f * e); lineTo(17f * e, 10f * e) }, color, style = estilo)
+    drawPath(
+        Path().apply {
+            moveTo(5f * e, 14f * e); lineTo(5f * e, 19f * e); lineTo(19f * e, 19f * e); lineTo(19f * e, 14f * e)
+        },
+        color, style = estilo,
+    )
+}

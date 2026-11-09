@@ -2,7 +2,9 @@ package vicecity.web.componentes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,9 +20,13 @@ import androidx.compose.ui.unit.sp
 import vicecity.web.tema.Colores
 import vicecity.web.tema.Medidas
 
-/** Botón principal: degradado rosa → coral con brillo neón y texto oscuro para que se lea bien. */
 @Composable
-fun BotonNeon(texto: String, alPresionar: () -> Unit, modifier: Modifier = Modifier) {
+fun BotonNeon(
+    texto: String,
+    alPresionar: () -> Unit,
+    modifier: Modifier = Modifier,
+    icono: (@Composable () -> Unit)? = null,
+) {
     val forma = RoundedCornerShape(Medidas.Esquina)
     Box(
         modifier
@@ -32,6 +38,9 @@ fun BotonNeon(texto: String, alPresionar: () -> Unit, modifier: Modifier = Modif
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(texto, color = Colores.TextoSobreNeon, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            icono?.invoke()
+            Text(texto, color = Colores.TextoSobreNeon, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }

@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.isSpecified
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 import vicecity.web.tema.Colores
@@ -36,16 +38,25 @@ private val CiudadLejana = Color(0xFF8F7BBE)
 private val CiudadCercana = Color(0xFF6E5DA0)
 private val Palmera = Color(0xFF46397A)
 
-/** Encabezado ilustrado. La altura la decide quien lo usa; el dibujo se adapta. */
+/**
+ * Encabezado ilustrado. La altura la decide quien lo usa; el dibujo se adapta.
+ * [altoEscena] es el alto de la ciudad, el agua y las palmeras: si el encabezado es más alto,
+ * el cielo se extiende hacia arriba (así se usa en la bienvenida). Sin indicarlo, la escena ocupa todo el alto.
+ */
 @Composable
-fun FondoAtardecer(modifier: Modifier = Modifier) {
+fun FondoAtardecer(modifier: Modifier = Modifier, altoEscena: Dp = Dp.Unspecified) {
     // clipToBounds: los troncos de las palmeras no se salen del encabezado
-    Canvas(modifier.clipToBounds()) { dibujarAtardecer() }
+    Canvas(modifier.clipToBounds()) {
+        val alto = if (altoEscena.isSpecified) altoEscena.toPx().coerceAtMost(size.height) else size.height
+        dibujarAtardecer(alto)
+    }
 }
 
-private fun DrawScope.dibujarAtardecer() {
-    val e = size.height / ALTO_REFERENCIA
-    val horizonte = HORIZONTE * e
+private fun DrawScope.dibujarAtardecer(altoEscena: Float) {
+    val e = altoEscena / ALTO_REFERENCIA
+    // Cielo extra por encima de la escena (0 cuando la escena ocupa todo el alto)
+    val arriba = size.height - altoEscena
+    val horizonte = arriba + HORIZONTE * e
     val anchoReferencia = size.width / e
     // Ciudad: el bloque de referencia (x 30 a 360) se repite a lo ancho, alternando con su reflejo
     val bloques = if (anchoReferencia <= 420f) 1 else ceil(anchoReferencia / 320f).toInt()
@@ -74,10 +85,10 @@ private fun DrawScope.dibujarAtardecer() {
         val inicio = i * 320f
         withTransform({
             if (i % 2 == 0) {
-                translate(left = inicio * e)
+                translate(left = inicio * e, top = arriba)
                 scale(e, e, pivot = Offset.Zero)
             } else {
-                translate(left = (inicio + 390f) * e)
+                translate(left = (inicio + 390f) * e, top = arriba)
                 scale(-e, e, pivot = Offset.Zero)
             }
         }) {
@@ -102,12 +113,12 @@ private fun DrawScope.dibujarAtardecer() {
     }
 
     // Palmeras: a la derecha, medidas desde el borde derecho; a la izquierda, reflejadas
-    palmera(x = size.width - 122f * e, y = 30f * e, escala = 0.95f * e)
-    palmera(x = size.width - 72f * e, y = 92f * e, escala = 0.6f * e)
-    palmera(x = 70f * e, y = 96f * e, escala = 0.75f * e, reflejada = true)
+    palmera(x = size.width - 122f * e, y = arriba + 30f * e, escala = 0.95f * e)
+    palmera(x = size.width - 72f * e, y = arriba + 92f * e, escala = 0.6f * e)
+    palmera(x = 70f * e, y = arriba + 96f * e, escala = 0.75f * e, reflejada = true)
     if (anchoReferencia > 700f) {
-        palmera(x = size.width - 200f * e, y = 118f * e, escala = 0.5f * e)
-        palmera(x = 150f * e, y = 128f * e, escala = 0.55f * e, reflejada = true)
+        palmera(x = size.width - 200f * e, y = arriba + 118f * e, escala = 0.5f * e)
+        palmera(x = 150f * e, y = arriba + 128f * e, escala = 0.55f * e, reflejada = true)
     }
 
     // Transición suave hacia el fondo de la pantalla
