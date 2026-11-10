@@ -43,6 +43,7 @@ data class Configuracion(
     val adminNombre: String = "Administrador",
     val establecimientoNombre: String = "Establecimiento de prueba",
     val reglasBusqueda: ReglasBusqueda = ReglasBusqueda(),
+    val maxVotosPorSesion: Int = 3,
 ) {
     companion object {
         private const val ORIGENES_LOCALES = "http://localhost:8080"
