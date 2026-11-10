@@ -2,7 +2,7 @@
 
 PMV para pedir y votar la música de un establecimiento mediante un código QR. Proyecto nuclear de Construcción de Aplicaciones Móviles y Big Data.
 
-Estado: **módulo de acceso y búsqueda para clientes**, completo: código QR, acceso desde el QR, identificación del dispositivo, búsqueda en YouTube con caché, autocompletado y pantallas para celular y tableta.
+Estado: **módulo de acceso y búsqueda para clientes**, completo: código QR, acceso desde el QR con pantalla de bienvenida y opción de instalar la app, identificación del dispositivo, búsqueda en YouTube con caché, autocompletado y pantallas para celular y tableta.
 
 ## Arquitectura
 
@@ -26,8 +26,9 @@ vice-city-app/
 │   └── rutas/          # endpoints REST
 ├── server/src/main/resources/db/migracion/            # migraciones Flyway (esquema SQL)
 ├── server/src/test/kotlin/vicecity/servidor/           # pruebas (unitarias y de integración)
-├── webApp/src/webMain/kotlin/vicecity/web/             # App.kt, main.kt; datos/ (API, dispositivo), tema/, componentes/, acceso/, busqueda/
+├── webApp/src/webMain/kotlin/vicecity/web/             # App.kt, main.kt; datos/ (API, dispositivo, instalación), tema/, componentes/, acceso/, bienvenida/, busqueda/
 ├── webApp/src/webMain/resources/                       # index.html, config.js, manifest, sw.js, íconos
+├── webApp/diseno/icono.svg                             # fuente editable del ícono de la app (no se publica)
 ├── .github/workflows/ci.yml                            # pruebas del servidor en cada push
 ├── .github/workflows/pages.yml                         # publica la web en GitHub Pages
 ├── Dockerfile, render.yaml                             # despliegue del servidor en Render
@@ -119,16 +120,16 @@ Para imprimirlo: mínimo 5 × 5 cm, en blanco y negro, sin recortar el margen bl
    ```
    Crea las bases `vicecity` y `vicecity_test` (usuario `vicecity`, clave `vicecity`) en el puerto 5432.
 
-   2. **Servidor**, en la terminal de IntelliJ (PowerShell):
-      ```powershell
-      $env:DATABASE_URL = "postgresql://vicecity:vicecity@localhost:5432/vicecity"
-      $env:JWT_SECRETO = "una-clave-larga-solo-para-desarrollo-local"
-      $env:ADMIN_EMAIL = "admin@local.test"
-      $env:ADMIN_PASSWORD = "clave-local-123"
-      ./gradlew :server:run
-      ```
-      Si la terminal dice `JAVA_HOME is not set`, define `JAVA_HOME` en las variables de entorno de Windows con la ruta de un JDK 21.
-      Comprueba en el navegador: <http://localhost:8081/api/v1/salud> → `"baseDatos":"CONECTADA"`.
+2. **Servidor**, en la terminal de IntelliJ (PowerShell):
+   ```powershell
+   $env:DATABASE_URL = "postgresql://vicecity:vicecity@localhost:5432/vicecity"
+   $env:JWT_SECRETO = "una-clave-larga-solo-para-desarrollo-local"
+   $env:ADMIN_EMAIL = "admin@local.test"
+   $env:ADMIN_PASSWORD = "clave-local-123"
+   ./gradlew :server:run
+   ```
+   Si la terminal dice `JAVA_HOME is not set`, define `JAVA_HOME` en las variables de entorno de Windows con la ruta de un JDK 21.
+   Comprueba en el navegador: <http://localhost:8081/api/v1/salud> → `"baseDatos":"CONECTADA"`.
 
 3. **Web**, en otra terminal:
    ```powershell
@@ -191,11 +192,13 @@ Cuota por defecto: 10.000 unidades diarias, pero las búsquedas (`search.list`) 
 ## Verificación del módulo de acceso y búsqueda (web)
 
 - **Diseño "atardecer neón":** el encabezado (cielo, sol, ciudad y palmeras) se dibuja con código en Compose Canvas, sin imágenes externas ni arte de terceros. El resto de la pantalla es oscuro para que los resultados se lean bien dentro del establecimiento.
-- **Celular real:** al escanear el QR se abre la app del establecimiento; la búsqueda en YouTube muestra miniatura, título, artista y duración; escribir con el teclado del celular y el botón Buscar funcionan.
-- **Chromium (390 px y 1180 px):** sin código, código inválido, sin conexión con el botón "Volver a intentar", sesión abierta y sin abrir, sugerencias mientras se escribe, búsqueda con el botón Buscar, con Enter y tocando una sugerencia, resultados en 1 y 3 columnas, y aviso cuando YouTube no está disponible. En una prueba anterior también se comprobaron 2 columnas (820 px), el aviso de instalación en iPhone y la reapertura sin `?e=` (la app recuerda el establecimiento).
+- **Bienvenida:** al escanear el QR en el navegador aparece primero una bienvenida con dos opciones: "Descargar esta app" y "Continuar en el navegador". Sale cada vez que se escanea el QR en el navegador, para que quien no la instaló la primera vez pueda hacerlo después; en la app instalada entra directo a la búsqueda. "Descargar esta app" abre la ventana de instalación de Chrome (evento `beforeinstallprompt`, guardado en `index.html`); si el navegador no la ofrece (iPhone, otro navegador o app ya instalada), muestra los pasos para instalarla desde el menú.
+- **Ícono:** sol neón y palmeras a contraluz, diseño propio. La fuente editable está en `webApp/diseno/icono.svg`; los PNG de `resources/icons` salen de ese archivo.
+- **Celular real (Android):** al escanear el QR se abre la app del establecimiento; la búsqueda en YouTube muestra miniatura, título, artista y duración; escribir con el teclado del celular y el botón Buscar funcionan; la app se instala desde el menú de Chrome y abre desde su ícono.
+- **Chromium (390 px y 1180 px):** sin código, código inválido, sin conexión con el botón "Volver a intentar", sesión abierta y sin abrir, sugerencias mientras se escribe, búsqueda con el botón Buscar, con Enter y tocando una sugerencia, resultados en 1 y 3 columnas, y aviso cuando YouTube no está disponible. La bienvenida: con la ventana de instalación simulada la abre y pasa a la búsqueda; sin ella muestra los pasos para Android o para iPhone; "Continuar en el navegador" lleva a la búsqueda, y al volver a escanear el QR aparece de nuevo. En una prueba anterior también se comprobaron 2 columnas (820 px), el aviso de instalación en iPhone y la reapertura sin `?e=` (la app recuerda el establecimiento).
 - 3 pruebas automáticas más para las miniaturas (49 en total): formato JPEG con caché de una semana y CORS, memoria sin volver a YouTube, e identificadores inválidos o inexistentes.
 - **Alcance:** tocar un resultado todavía no hace nada. Pedir y votar canciones, y verlas en la cola, es el siguiente módulo.
-- **Pendiente de comprobar:** instalar la app en el celular y probarla en una tableta real.
+- **Pendiente de comprobar:** el botón "Descargar esta app" abriendo la ventana de Chrome en un celular real, y la app en una tableta real.
 
 ## Verificación de la entrega 1.1
 
