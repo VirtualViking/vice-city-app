@@ -59,6 +59,18 @@ class ModeloAcceso(private val api: ClienteApi, private val alcance: CoroutineSc
     /** Vuelve a intentar con el código guardado (botón "Volver a intentar"). */
     fun reintentar() = iniciar()
 
+    /**
+     * Vuelve a consultar el establecimiento sin pasar por la pantalla de carga, por ejemplo cuando la sesión se cerró
+     * o todavía no estaba abierta: si el DJ abrió una nueva, la app la toma. Si falla, todo sigue como estaba.
+     */
+    fun actualizar() {
+        val listo = estado as? EstadoAcceso.Listo ?: return
+        alcance.launch {
+            val establecimiento = runCatching { api.establecimiento(listo.codigoQr) }.getOrNull() ?: return@launch
+            (estado as? EstadoAcceso.Listo)?.let { estado = it.copy(establecimiento = establecimiento) }
+        }
+    }
+
     /** Deja la bienvenida y pasa a la búsqueda, en el navegador o después de abrir la instalación. */
     fun continuar() {
         llegoPorQr = false
