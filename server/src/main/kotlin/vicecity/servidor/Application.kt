@@ -46,13 +46,14 @@ import vicecity.servidor.seguridad.ServicioJwt
 import vicecity.servidor.servicios.AccesoService
 import vicecity.servidor.servicios.AuthService
 import vicecity.servidor.servicios.BusquedaService
+import vicecity.servidor.servicios.ColaService
 import vicecity.servidor.servicios.Inicializador
 import vicecity.servidor.servicios.QrService
 import vicecity.servidor.servicios.SesionService
 import vicecity.servidor.servicios.SugerenciaService
 import kotlin.time.Duration.Companion.seconds
 
-const val VERSION = "0.3.0"
+const val VERSION = "0.4.0"
 
 fun main() {
     // Render asigna el puerto en la variable PORT; en local se usa 8081
@@ -91,6 +92,7 @@ fun Application.modulo(
     val busqueda by lazy { BusquedaService(bd(), catalogoVideos, config.reglasBusqueda) }
     val sugerencias by lazy { SugerenciaService(bd(), config.reglasBusqueda) }
     val qr by lazy { QrService(bd(), config.webUrl) }
+    val cola by lazy { ColaService(bd(), config.maxVotosPorSesion) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -139,7 +141,7 @@ fun Application.modulo(
         }
         rutasAuth { auth }
         rutasSesiones { sesiones }
-        rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias })
+        rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias }, cola = { cola })
         rutasEstablecimiento { qr }
         rutasMiniaturas(miniaturas)
     }
