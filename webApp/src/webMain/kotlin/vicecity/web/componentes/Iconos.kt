@@ -71,3 +71,29 @@ fun IconoDescargar(color: Color, tamano: Dp = 20.dp) = Icono(tamano, color, 2f) 
         color, style = estilo,
     )
 }
+
+/** Tres líneas de una lista: la pestaña "Cola". */
+@Composable
+fun IconoCola(color: Color, tamano: Dp = 22.dp) = Icono(tamano, color, 2f) { e, estilo ->
+    drawLine(color, Offset(4f * e, 6f * e), Offset(20f * e, 6f * e), estilo.width, StrokeCap.Round)
+    drawLine(color, Offset(4f * e, 12f * e), Offset(20f * e, 12f * e), estilo.width, StrokeCap.Round)
+    drawLine(color, Offset(4f * e, 18f * e), Offset(14f * e, 18f * e), estilo.width, StrokeCap.Round)
+}
+
+/** Flecha hacia arriba de los botones de voto. */
+@Composable
+fun IconoVoto(color: Color, tamano: Dp = 18.dp) = Icono(tamano, color, 2.6f) { e, estilo ->
+    drawPath(Path().apply { moveTo(6f * e, 15f * e); lineTo(12f * e, 9f * e); lineTo(18f * e, 15f * e) }, color, style = estilo)
+}
+
+@Composable
+fun IconoListo(color: Color, tamano: Dp = 20.dp) = Icono(tamano, color, 2.4f) { e, estilo ->
+    drawPath(Path().apply { moveTo(5f * e, 12f * e); lineTo(10f * e, 17f * e); lineTo(19f * e, 7f * e) }, color, style = estilo)
+}
+
+/** Reloj de las hojas de límite. */
+@Composable
+fun IconoReloj(color: Color, tamano: Dp = 28.dp) = Icono(tamano, color, 2f) { e, estilo ->
+    drawCircle(color, radius = 9f * e, center = Offset(12f * e, 12f * e), style = estilo)
+    drawPath(Path().apply { moveTo(12f * e, 7f * e); lineTo(12f * e, 12f * e); lineTo(15f * e, 14f * e) }, color, style = estilo)
+}

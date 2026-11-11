@@ -1,6 +1,7 @@
 package vicecity.web.busqueda
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -24,12 +27,15 @@ import vicecity.web.datos.ClienteApi
 import vicecity.web.tema.Colores
 import vicecity.web.tema.Medidas
 
-/** Un video de los resultados: miniatura, título, artista y duración (RF-04). */
+/** Un video de los resultados: miniatura, título, artista y duración (RF-04). Al tocarlo se puede pedir (RF-05). */
 @Composable
-fun TarjetaResultado(api: ClienteApi, resultado: ResultadoBusqueda, modifier: Modifier = Modifier) {
+fun TarjetaResultado(api: ClienteApi, resultado: ResultadoBusqueda, alPresionar: () -> Unit, modifier: Modifier = Modifier) {
+    val forma = RoundedCornerShape(Medidas.Esquina)
     Row(
         modifier.fillMaxWidth().heightIn(min = 64.dp)
-            .background(Colores.Tarjeta, RoundedCornerShape(Medidas.Esquina))
+            .clip(forma)
+            .background(Colores.Tarjeta)
+            .clickable(role = Role.Button, onClick = alPresionar)
             .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

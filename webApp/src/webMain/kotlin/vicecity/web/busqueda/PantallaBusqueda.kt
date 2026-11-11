@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
@@ -25,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import vicecity.compartido.EstablecimientoPublico
 import vicecity.compartido.FuenteBusqueda
+import vicecity.compartido.ResultadoBusqueda
 import vicecity.web.componentes.AvisoInstalarIos
 import vicecity.web.componentes.FondoAtardecer
 import vicecity.web.componentes.MensajeCentral
@@ -53,11 +54,16 @@ import vicecity.web.tema.Medidas
 /**
  * Pantalla principal del cliente: encabezado con el atardecer, caja de búsqueda con autocompletado y resultados.
  * Se adapta al ancho: 1 columna en celular, 2 en tableta vertical y 3 en pantallas anchas.
+ * [modelo] y [lista] vienen de afuera para que los resultados y el desplazamiento sigan ahí al volver de la cola.
  */
 @Composable
-fun PantallaBusqueda(api: ClienteApi, codigoQr: String, establecimiento: EstablecimientoPublico) {
-    val alcance = rememberCoroutineScope()
-    val modelo = remember(codigoQr) { ModeloBusqueda(api, codigoQr, alcance) }
+fun PantallaBusqueda(
+    api: ClienteApi,
+    modelo: ModeloBusqueda,
+    lista: LazyGridState,
+    establecimiento: EstablecimientoPublico,
+    alElegir: (ResultadoBusqueda) -> Unit,
+) {
     val estado = modelo.estado
     val foco = LocalFocusManager.current
     var mostrarAvisoIos by remember { mutableStateOf(Navegador.esIos && !Navegador.estaInstalada && !Almacen.avisoInstalarCerrado) }
@@ -76,6 +82,7 @@ fun PantallaBusqueda(api: ClienteApi, codigoQr: String, establecimiento: Estable
         LazyVerticalGrid(
             columns = GridCells.Fixed(columnas),
             modifier = Modifier.fillMaxSize(),
+            state = lista,
             contentPadding = PaddingValues(start = lateral, end = lateral, bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -107,7 +114,7 @@ fun PantallaBusqueda(api: ClienteApi, codigoQr: String, establecimiento: Estable
                     modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
                 )
             }
-            contenido(estado, api)
+            contenido(estado, api, alElegir)
         }
     }
 }
@@ -123,7 +130,7 @@ private fun LazyGridScope.filaCompleta(contenido: @Composable () -> Unit) {
     item(span = { GridItemSpan(maxLineSpan) }) { contenido() }
 }
 
-private fun LazyGridScope.contenido(estado: EstadoBusqueda, api: ClienteApi) {
+private fun LazyGridScope.contenido(estado: EstadoBusqueda, api: ClienteApi, alElegir: (ResultadoBusqueda) -> Unit) {
     val resultados = estado.resultados
     when {
         estado.cargando -> filaCompleta {
@@ -145,7 +152,7 @@ private fun LazyGridScope.contenido(estado: EstadoBusqueda, api: ClienteApi) {
         }
         else -> {
             filaCompleta { TituloResultados(estado.fuente) }
-            items(resultados, key = { it.videoId }) { TarjetaResultado(api, it) }
+            items(resultados, key = { it.videoId }) { TarjetaResultado(api, it, alPresionar = { alElegir(it) }) }
         }
     }
 }
@@ -183,7 +190,7 @@ private fun Encabezado(establecimiento: EstablecimientoPublico, alto: Dp, tamano
 @Composable
 private fun Subtitulo(abierta: Boolean) {
     Text(
-        if (abierta) "Busca la música que quieres escuchar esta noche" else "Ya puedes buscar canciones. Las solicitudes se habilitan cuando el DJ abra la sesión.",
+        if (abierta) "Busca una canción y tócala para pedirla" else "Ya puedes buscar canciones. Las solicitudes se habilitan cuando el DJ abra la sesión.",
         color = Colores.TextoSecundario, fontSize = 14.sp, lineHeight = 20.sp,
     )
 }
