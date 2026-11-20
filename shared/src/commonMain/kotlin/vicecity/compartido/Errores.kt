@@ -31,6 +31,20 @@ object CodigosError {
 
     const val LIMITE_BUSQUEDAS = "LIMITE_BUSQUEDAS"
 
+    // Administración y continuidad musical
+    /** La canción está bloqueada en el establecimiento: no se puede pedir hasta detalles["hasta"]. */
+    const val VIDEO_BLOQUEADO = "VIDEO_BLOQUEADO"
+    /** El DJ pausó las solicitudes y los votos de la sesión. */
+    const val SOLICITUDES_PAUSADAS = "SOLICITUDES_PAUSADAS"
+    /** El establecimiento está en mantenimiento: no se puede abrir una sesión. */
+    const val EN_MANTENIMIENTO = "EN_MANTENIMIENTO"
+    /** La acción necesita una sesión abierta (por ejemplo, operar el reproductor). */
+    const val SIN_SESION_ABIERTA = "SIN_SESION_ABIERTA"
+    /** La acción necesita que no haya una sesión abierta (por ejemplo, activar el mantenimiento). */
+    const val SESION_EN_CURSO = "SESION_EN_CURSO"
+    /** La limpieza solo se puede hacer con el mantenimiento activo. */
+    const val MANTENIMIENTO_INACTIVO = "MANTENIMIENTO_INACTIVO"
+
     const val YOUTUBE_NO_DISPONIBLE = "YOUTUBE_NO_DISPONIBLE"
     const val BASE_DATOS_NO_DISPONIBLE = "BASE_DATOS_NO_DISPONIBLE"
     const val ERROR_INTERNO = "ERROR_INTERNO"
