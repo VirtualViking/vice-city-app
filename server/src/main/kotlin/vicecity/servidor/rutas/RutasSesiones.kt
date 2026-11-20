@@ -2,11 +2,14 @@ package vicecity.servidor.rutas
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.authenticate
+import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 import vicecity.compartido.ListaSesiones
+import vicecity.compartido.PausaSolicitudes
 import vicecity.compartido.Rol
 import vicecity.compartido.Rutas
 import vicecity.compartido.SesionActiva
@@ -32,11 +35,20 @@ fun Route.rutasSesiones(sesiones: () -> SesionService) {
             call.respond(SesionActiva(sesiones().activa(usuario)))
         }
 
+
         post("${Rutas.SESIONES}/{id}/cerrar") {
             val usuario = call.usuario().also { it.exigirRol(Rol.ADMIN, Rol.DJ) }
             val id = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: throw noEncontrado("la sesión")
             call.respond(sesiones().cerrar(usuario, id))
+        }
+
+        // Pausa manual de solicitudes y votos: la sesión sigue abierta y la música sigue sonando
+        put("${Rutas.SESIONES}/{id}/pausa") {
+            val usuario = call.usuario().also { it.exigirRol(Rol.ADMIN, Rol.DJ) }
+            val id = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: throw noEncontrado("la sesión")
+            call.respond(sesiones().pausarSolicitudes(usuario, id, call.receive<PausaSolicitudes>().pausadas))
         }
 
         get(Rutas.SESIONES) {

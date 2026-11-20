@@ -25,6 +25,7 @@ import vicecity.servidor.datos.Sesiones
 import vicecity.servidor.datos.Solicitudes
 import vicecity.servidor.datos.Votos
 import vicecity.servidor.noEncontrado
+import vicecity.servidor.sesionCerrada
 import vicecity.servidor.seguridad.UsuarioPersonal
 import java.time.Duration
 import java.time.Instant
@@ -113,6 +114,14 @@ class SesionService(private val bd: BaseDatos) {
         CierreSesion(aDto(buscar(usuario.establecimientoId, sesionId)), enCola.size)
     }
 
+    /** Pausa o reanuda las solicitudes y los votos sin cerrar la sesión; la música sigue sonando. */
+    suspend fun pausarSolicitudes(usuario: UsuarioPersonal, sesionId: UUID, pausadas: Boolean): SesionDto = bd.tx {
+        val sesion = buscar(usuario.establecimientoId, sesionId)
+        if (sesion[Sesiones.estado] == EstadoSesion.CERRADA.name) throw sesionCerrada()
+        Sesiones.update({ Sesiones.id eq sesionId }) { it[solicitudesPausadas] = pausadas }
+        aDto(buscar(usuario.establecimientoId, sesionId))
+    }
+
     /** Sesión abierta del establecimiento del usuario, o null. */
     suspend fun activa(usuario: UsuarioPersonal): SesionDto? = bd.tx {
         RepositorioEstablecimientos.sesionAbierta(usuario.establecimientoId)?.let(::aDto)
@@ -137,16 +146,20 @@ class SesionService(private val bd: BaseDatos) {
         Sesiones.selectAll()
             .where { (Sesiones.id eq sesionId) and (Sesiones.establecimientoId eq establecimientoId) }
             .singleOrNull() ?: throw noEncontrado("la sesión")
-
-    private fun aDto(fila: ResultRow) = SesionDto(
-        id = fila[Sesiones.id].toString(),
-        estado = EstadoSesion.valueOf(fila[Sesiones.estado]),
-        modo = Modo.valueOf(fila[Sesiones.modoActual]),
-        estadoReproductor = EstadoReproductor.valueOf(fila[Sesiones.estadoReproductor]),
-        inicio = fila[Sesiones.inicio].toString(),
-        fin = fila[Sesiones.fin]?.toString(),
-    )
+    private fun aDto(fila: ResultRow) = sesionDto(fila)
 }
+
+/** Fila de SESION convertida al contrato de la API. */
+fun sesionDto(fila: ResultRow) = SesionDto(
+    id = fila[Sesiones.id].toString(),
+    estado = EstadoSesion.valueOf(fila[Sesiones.estado]),
+    modo = Modo.valueOf(fila[Sesiones.modoActual]),
+    estadoReproductor = EstadoReproductor.valueOf(fila[Sesiones.estadoReproductor]),
+    inicio = fila[Sesiones.inicio].toString(),
+    fin = fila[Sesiones.fin]?.toString(),
+    automatica = fila[Sesiones.automatica],
+    solicitudesPausadas = fila[Sesiones.solicitudesPausadas],
+)
 
 /** Busca en la cadena de causas una excepción del tipo indicado. */
 inline fun <reified T : Throwable> Throwable.causa(): T? =
