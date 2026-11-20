@@ -75,3 +75,24 @@ fun limiteVotos(limite: Int) =
         CodigosError.LIMITE_VOTOS, "Ya usaste tus $limite votos de esta noche",
         mapOf("limite" to limite.toString()),
     )
+
+fun videoBloqueado(videoId: String, hasta: Instant) =
+    ApiExcepcion(
+        HttpStatusCode.UnprocessableEntity, CodigosError.VIDEO_BLOQUEADO, "Esta canción no está disponible en este establecimiento por ahora",
+        mapOf("videoId" to videoId, "hasta" to hasta.toString()),
+    )
+
+fun solicitudesPausadas() =
+    conflicto(CodigosError.SOLICITUDES_PAUSADAS, "El DJ pausó las solicitudes por un momento. Vuelve a intentarlo en unos minutos.")
+
+fun enMantenimiento() =
+    conflicto(CodigosError.EN_MANTENIMIENTO, "El establecimiento está en mantenimiento: desactívalo para abrir la sesión")
+
+fun sinSesionAbierta() =
+    conflicto(CodigosError.SIN_SESION_ABIERTA, "Abre la sesión de esta noche para usar el reproductor")
+
+fun sesionEnCurso() =
+    conflicto(CodigosError.SESION_EN_CURSO, "Cierra la sesión de esta noche antes de activar el mantenimiento")
+
+fun mantenimientoInactivo() =
+    conflicto(CodigosError.MANTENIMIENTO_INACTIVO, "Activa el mantenimiento antes de limpiar")

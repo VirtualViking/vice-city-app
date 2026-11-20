@@ -40,20 +40,24 @@ import vicecity.servidor.rutas.rutasAuth
 import vicecity.servidor.rutas.rutasCliente
 import vicecity.servidor.rutas.rutasEstablecimiento
 import vicecity.servidor.rutas.rutasMiniaturas
+import vicecity.servidor.rutas.rutasPanel
 import vicecity.servidor.rutas.rutasSesiones
 import vicecity.servidor.seguridad.HuellaDispositivo
 import vicecity.servidor.seguridad.ServicioJwt
 import vicecity.servidor.servicios.AccesoService
 import vicecity.servidor.servicios.AuthService
+import vicecity.servidor.servicios.BloqueoService
 import vicecity.servidor.servicios.BusquedaService
 import vicecity.servidor.servicios.ColaService
 import vicecity.servidor.servicios.Inicializador
+import vicecity.servidor.servicios.ListaDefectoService
 import vicecity.servidor.servicios.QrService
+import vicecity.servidor.servicios.ReproductorService
 import vicecity.servidor.servicios.SesionService
 import vicecity.servidor.servicios.SugerenciaService
 import kotlin.time.Duration.Companion.seconds
 
-const val VERSION = "0.4.0"
+const val VERSION = "0.5.0"
 
 fun main() {
     // Render asigna el puerto en la variable PORT; en local se usa 8081
@@ -93,6 +97,9 @@ fun Application.modulo(
     val sugerencias by lazy { SugerenciaService(bd(), config.reglasBusqueda) }
     val qr by lazy { QrService(bd(), config.webUrl) }
     val cola by lazy { ColaService(bd(), config.maxVotosPorSesion) }
+    val reproductor by lazy { ReproductorService(bd()) }
+    val listaDefecto by lazy { ListaDefectoService(bd()) }
+    val bloqueos by lazy { BloqueoService(bd()) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -142,6 +149,7 @@ fun Application.modulo(
         rutasAuth { auth }
         rutasSesiones { sesiones }
         rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias }, cola = { cola })
+        rutasPanel(reproductor = { reproductor }, listaDefecto = { listaDefecto }, bloqueos = { bloqueos }, busqueda = { busqueda })
         rutasEstablecimiento { qr }
         rutasMiniaturas(miniaturas)
     }

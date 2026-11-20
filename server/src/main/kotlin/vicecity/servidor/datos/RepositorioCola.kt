@@ -49,13 +49,27 @@ object RepositorioCola {
     fun cola(sesionId: UUID): List<ItemCola> = itemsDonde(Solicitudes.sesionId eq sesionId, enCola = true)
 
     /**
-     * La solicitud que suena ahora, o null. Las pone a sonar el reproductor del DJ (módulo siguiente);
-     * lo que suena de la lista por defecto se agregará con ese módulo.
+     * Lo que suena ahora en la sesión, o null si no suena nada.
+     * Si la sesión guarda una canción de la lista por defecto (video_actual), es esa; si no, la solicitud REPRODUCIENDO.
      */
-    fun actual(sesionId: UUID): ElementoActual? =
-        Solicitudes.join(Canciones, JoinType.INNER, Solicitudes.videoId, Canciones.videoId)
+    fun actual(sesion: ResultRow): ElementoActual? {
+        val videoLista = sesion[Sesiones.videoActual]
+        if (videoLista != null) {
+            val cancion = Canciones.selectAll().where { Canciones.videoId eq videoLista }.single()
+            return ElementoActual(
+                origen = Origen.LISTA_DEFECTO,
+                videoId = videoLista,
+                titulo = cancion[Canciones.titulo],
+                artista = cancion[Canciones.artista] ?: cancion[Canciones.canal],
+                canal = cancion[Canciones.canal],
+                miniaturaUrl = cancion[Canciones.miniaturaUrl] ?: miniaturaPorDefecto(videoLista),
+                duracionSeg = cancion[Canciones.duracionSeg],
+                inicioEn = (sesion[Sesiones.inicioActual] ?: sesion[Sesiones.inicio]).toString(),
+            )
+        }
+        return Solicitudes.join(Canciones, JoinType.INNER, Solicitudes.videoId, Canciones.videoId)
             .selectAll()
-            .where { (Solicitudes.sesionId eq sesionId) and (Solicitudes.estado eq EstadoSolicitud.REPRODUCIENDO.name) }
+            .where { (Solicitudes.sesionId eq sesion[Sesiones.id]) and (Solicitudes.estado eq EstadoSolicitud.REPRODUCIENDO.name) }
             .singleOrNull()
             ?.let { fila ->
                 val videoId = fila[Solicitudes.videoId]
@@ -71,6 +85,13 @@ object RepositorioCola {
                     inicioEn = (fila[Solicitudes.inicioReproduccion] ?: fila[Solicitudes.solicitadaEn]).toString(),
                 )
             }
+    }
+
+    /** La solicitud REPRODUCIENDO de la sesión, o null. */
+    fun sonando(sesionId: UUID): ResultRow? =
+        Solicitudes.selectAll()
+            .where { (Solicitudes.sesionId eq sesionId) and (Solicitudes.estado eq EstadoSolicitud.REPRODUCIENDO.name) }
+            .singleOrNull()
 
     fun item(solicitudId: UUID): ItemCola = itemsDonde(Solicitudes.id eq solicitudId, enCola = false).single()
 

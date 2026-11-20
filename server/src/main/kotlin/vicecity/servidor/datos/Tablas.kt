@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.java.javaUUID
+import org.jetbrains.exposed.v1.javatime.time
 import org.jetbrains.exposed.v1.javatime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
 
@@ -23,6 +24,14 @@ object Establecimientos : Table("establecimiento") {
     val antirepeticionMin = integer("antirepeticion_min")
     val duracionMaxSeg = integer("duracion_max_seg")
     val creadoEn = timestamp("creado_en")
+
+    val programacionAutomatica = bool("programacion_automatica")
+
+    val mantenimiento = bool("mantenimiento")
+
+    val posicionListaDefecto = integer("posicion_lista_defecto").nullable()
+
+
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -47,6 +56,11 @@ object Sesiones : Table("sesion") {
     val posicionListaDefecto = integer("posicion_lista_defecto").nullable()
     val inicio = timestamp("inicio")
     val fin = timestamp("fin").nullable()
+    val automatica = bool("automatica")
+    val solicitudesPausadas = bool("solicitudes_pausadas")
+    /** Canción de la lista por defecto que suena y desde cuándo; null si suena una solicitud o nada. */
+    val videoActual = varchar("video_actual", 11).nullable()
+    val inicioActual = timestamp("inicio_actual").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -111,6 +125,32 @@ object Votos : Table("voto") {
     val dispositivoHash = varchar("dispositivo_hash", 64)
     val creadoEn = timestamp("creado_en")
     override val primaryKey = PrimaryKey(id)
+}
+
+object ListaDefectoItems : Table("lista_defecto_item") {
+    val establecimientoId = javaUUID("establecimiento_id")
+    val posicion = integer("posicion")
+    val videoId = varchar("video_id", 11)
+    override val primaryKey = PrimaryKey(establecimientoId, posicion)
+}
+
+/** Horario semanal en hora de Colombia. [dia]: 1 = lunes … 7 = domingo. */
+object Horarios : Table("horario") {
+    val establecimientoId = javaUUID("establecimiento_id")
+    val dia = short("dia")
+    val apertura = time("apertura")
+    val cierre = time("cierre")
+    override val primaryKey = PrimaryKey(establecimientoId, dia)
+}
+
+object BloqueosVideo : Table("bloqueo_video") {
+    val establecimientoId = javaUUID("establecimiento_id")
+    val videoId = varchar("video_id", 11)
+    val motivo = varchar("motivo", 15)
+    val personalId = javaUUID("personal_id")
+    val creadoEn = timestamp("creado_en")
+    val hasta = timestamp("hasta")
+    override val primaryKey = PrimaryKey(establecimientoId, videoId)
 }
 
 object Eventos : Table("evento") {

@@ -23,6 +23,7 @@ import vicecity.servidor.cancionReciente
 import vicecity.servidor.datos.Canciones
 import vicecity.servidor.datos.Establecimientos
 import vicecity.servidor.datos.Eventos
+import vicecity.servidor.datos.RepositorioBloqueos
 import vicecity.servidor.datos.RepositorioCola
 import vicecity.servidor.datos.RepositorioDispositivos
 import vicecity.servidor.datos.RepositorioEstablecimientos
@@ -32,7 +33,10 @@ import vicecity.servidor.limiteSolicitudes
 import vicecity.servidor.limiteVotos
 import vicecity.servidor.noEncontrado
 import vicecity.servidor.sesionCerrada
+import vicecity.servidor.servicios.Reproduccion.siEstaLibre
 import vicecity.servidor.solicitudNoActiva
+import vicecity.servidor.solicitudesPausadas
+import vicecity.servidor.videoBloqueado
 import vicecity.servidor.videoNoValido
 import vicecity.servidor.yaVotado
 import java.time.Duration
@@ -57,9 +61,10 @@ class ColaService(private val bd: BaseDatos, private val maxVotos: Int) {
             sesionId = sesionId.toString(),
             modo = Modo.valueOf(sesion[Sesiones.modoActual]),
             estadoReproductor = EstadoReproductor.valueOf(sesion[Sesiones.estadoReproductor]),
-            actual = RepositorioCola.actual(sesionId),
+            actual = RepositorioCola.actual(sesion),
             cola = RepositorioCola.cola(sesionId),
             actualizadoEn = Instant.now().toString(),
+            solicitudesPausadas = sesion[Sesiones.solicitudesPausadas],
         )
     }
 
@@ -138,6 +143,7 @@ class ColaService(private val bd: BaseDatos, private val maxVotos: Int) {
 
         val ahora = Instant.now()
         RepositorioDispositivos.registrar(dispositivoHash, ahora)
+        if (sesion[Sesiones.solicitudesPausadas]) throw solicitudesPausadas()
         val estado = RepositorioCola.solicitud(solicitudId)!![Solicitudes.estado]
         if (estado != EstadoSolicitud.EN_COLA.name) throw solicitudNoActiva(estado)
         val votos = votarEnTx(sesion, solicitud, dispositivoHash, idEvento, ahora, desdeSolicitud = false)
@@ -148,10 +154,13 @@ class ColaService(private val bd: BaseDatos, private val maxVotos: Int) {
         sesion: ResultRow, videoId: String, dispositivoHash: String, idEvento: UUID, ahora: Instant,
     ): RespuestaSolicitud {
         val sesionId = sesion[Sesiones.id]
+        if (sesion[Sesiones.solicitudesPausadas]) throw solicitudesPausadas()
         val reglas = reglasDe(sesion)
         val cancion = Canciones.selectAll().where { Canciones.videoId eq videoId }.singleOrNull()
             ?: throw videoNoValido(videoId, "NO_DISPONIBLE")
         if (cancion[Canciones.duracionSeg] > reglas.duracionMaxSeg) throw videoNoValido(videoId, "DURACION_EXCEDIDA")
+        // Bloqueada por el DJ por contenido inapropiado
+        RepositorioBloqueos.vigente(sesion[Sesiones.establecimientoId], videoId, ahora)?.let { throw videoBloqueado(videoId, it) }
 
         // Ya está en la cola: la solicitud se convierte en un voto
         RepositorioCola.activaDeVideo(sesionId, videoId)?.let { activa ->
@@ -196,6 +205,8 @@ class ColaService(private val bd: BaseDatos, private val maxVotos: Int) {
             },
             ocurridoEn = ahora,
         )
+        // Si el reproductor está encendido y no suena nada, esta solicitud empieza a sonar enseguida
+        siEstaLibre(sesionId, ahora)
         return RespuestaSolicitud(ResultadoSolicitud.SOLICITUD_CREADA, item)
     }
 

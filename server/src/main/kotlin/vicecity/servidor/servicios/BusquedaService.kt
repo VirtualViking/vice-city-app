@@ -9,6 +9,7 @@ import vicecity.servidor.BaseDatos
 import vicecity.servidor.ReglasBusqueda
 import vicecity.servidor.datos.Canciones
 import vicecity.servidor.datos.Establecimientos
+import vicecity.servidor.datos.RepositorioBloqueos
 import vicecity.servidor.datos.RepositorioCache
 import vicecity.servidor.datos.RepositorioCanciones
 import vicecity.servidor.datos.RepositorioDispositivos
@@ -22,6 +23,7 @@ import vicecity.servidor.integraciones.CatalogoNoDisponible
 import vicecity.servidor.integraciones.CatalogoVideos
 import vicecity.servidor.limiteBusquedas
 import vicecity.servidor.noEncontrado
+import vicecity.servidor.seguridad.UsuarioPersonal
 import vicecity.servidor.youtubeNoDisponible
 import java.time.Instant
 import java.util.UUID
@@ -40,14 +42,41 @@ class BusquedaService(
     private val log = LoggerFactory.getLogger(BusquedaService::class.java)
 
     suspend fun buscar(codigoQr: String, texto: String, dispositivoHash: String): RespuestaBusqueda {
+        val consulta = validar(texto)
+        val ahora = Instant.now()
+        val contexto = bd.tx { contexto(codigoQr, dispositivoHash, ahora) }
+        return buscarEn(contexto, consulta, dispositivoHash, ahora)
+    }
+
+    /**
+     * Búsqueda del personal para armar la lista por defecto (RF-18): mismo catálogo, caché y tope diario de YouTube,
+     * sin el límite por dispositivo y sin alimentar las sugerencias de los clientes.
+     */
+    suspend fun buscarPersonal(usuario: UsuarioPersonal, texto: String): RespuestaBusqueda {
+        val consulta = validar(texto)
+        val ahora = Instant.now()
+        val contexto = bd.tx {
+            val establecimiento = RepositorioEstablecimientos.porId(usuario.establecimientoId) ?: throw noEncontrado("el establecimiento")
+            Contexto(
+                establecimientoId = usuario.establecimientoId,
+                sesionId = RepositorioEstablecimientos.sesionAbierta(usuario.establecimientoId)?.get(Sesiones.id),
+                duracionMaxSeg = establecimiento[Establecimientos.duracionMaxSeg],
+            )
+        }
+        return buscarEn(contexto, consulta, dispositivoHash = null, ahora)
+    }
+
+    private fun validar(texto: String): String {
         val consulta = Textos.limpiar(texto)
         if (consulta.length !in LARGO_PERMITIDO) {
             throw datosInvalidos("q", "Escribe entre ${LARGO_PERMITIDO.first} y ${LARGO_PERMITIDO.last} caracteres para buscar")
         }
-        val termino = Textos.normalizar(consulta)
-        val ahora = Instant.now()
-        val contexto = bd.tx { contexto(codigoQr, dispositivoHash, ahora) }
+        return consulta
+    }
 
+    /** [dispositivoHash] es null cuando busca el personal. */
+    private suspend fun buscarEn(contexto: Contexto, consulta: String, dispositivoHash: String?, ahora: Instant): RespuestaBusqueda {
+        val termino = Textos.normalizar(consulta)
         val enCache = bd.tx { RepositorioCache.vigente(termino, ahora) }
         val (videoIds, fuente) = if (enCache != null) {
             enCache to FuenteBusqueda.CACHE
@@ -56,10 +85,14 @@ class BusquedaService(
         }
 
         return bd.tx {
+            val bloqueadas = RepositorioBloqueos.bloqueados(contexto.establecimientoId, ahora)
             val resultados = RepositorioCanciones.porIds(videoIds)
                 .filter { it[Canciones.duracionSeg] <= contexto.duracionMaxSeg }   // RF-26: lo que no se podría pedir no se muestra
+                .filter { it[Canciones.videoId] !in bloqueadas }                    // ni lo que el DJ bloqueó
                 .map(RepositorioCanciones::aResultado)
-            RepositorioTerminos.registrar(contexto.establecimientoId, termino, Textos.recortar(consulta, 100), ahora)
+            if (dispositivoHash != null) {
+                RepositorioTerminos.registrar(contexto.establecimientoId, termino, Textos.recortar(consulta, 100), ahora)
+            }
             EventoService.registrar(
                 TipoEvento.BUSQUEDA_REALIZADA, contexto.establecimientoId, sesionId = contexto.sesionId,
                 dispositivoHash = dispositivoHash,
@@ -67,6 +100,7 @@ class BusquedaService(
                     put("termino", termino)
                     put("resultados", resultados.size)
                     put("fuente", fuente.name)
+                    if (dispositivoHash == null) put("personal", true)
                 },
                 ocurridoEn = ahora,
             )
@@ -76,14 +110,16 @@ class BusquedaService(
 
     /** Pide a YouTube si hay cupo; si no se puede, responde con las canciones ya guardadas o con el error que corresponda. */
     private suspend fun consultarCatalogo(
-        consulta: String, termino: String, dispositivoHash: String, ahora: Instant,
+        consulta: String, termino: String, dispositivoHash: String?, ahora: Instant,
     ): Pair<List<String>, FuenteBusqueda> {
-        val porDispositivo = bd.tx {
-            RepositorioEventos.busquedasYouTube(this, ahora.minus(reglas.ventanaPorDispositivo.toJavaDuration()), dispositivoHash)
-        }
-        if (porDispositivo.cantidad >= reglas.maxNuevasPorDispositivo) {
-            val reintentarEn = (porDispositivo.primera ?: ahora).plus(reglas.ventanaPorDispositivo.toJavaDuration())
-            return respaldoLocal(termino) ?: throw limiteBusquedas(reintentarEn)
+        if (dispositivoHash != null) {
+            val porDispositivo = bd.tx {
+                RepositorioEventos.busquedasYouTube(this, ahora.minus(reglas.ventanaPorDispositivo.toJavaDuration()), dispositivoHash)
+            }
+            if (porDispositivo.cantidad >= reglas.maxNuevasPorDispositivo) {
+                val reintentarEn = (porDispositivo.primera ?: ahora).plus(reglas.ventanaPorDispositivo.toJavaDuration())
+                return respaldoLocal(termino) ?: throw limiteBusquedas(reintentarEn)
+            }
         }
         val diarias = bd.tx { RepositorioEventos.busquedasYouTube(this, ahora.minus(24.hours.toJavaDuration())) }
         if (diarias.cantidad >= reglas.maxNuevasDiarias) {
