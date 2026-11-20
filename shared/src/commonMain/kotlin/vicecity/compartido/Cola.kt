@@ -46,6 +46,8 @@ data class EstadoCola(
     val actual: ElementoActual? = null,
     val cola: List<ItemCola>,
     val actualizadoEn: String,
+
+    val solicitudesPausadas: Boolean = false,
 )
 
 /** Solicitud vista por el dispositivo que la hizo. [posicion] solo existe mientras está EN_COLA (1 = la siguiente). */

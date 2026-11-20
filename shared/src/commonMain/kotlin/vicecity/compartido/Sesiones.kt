@@ -20,6 +20,8 @@ data class SesionDto(
     val estadoReproductor: EstadoReproductor,
     val inicio: String,
     val fin: String? = null,
+    val automatica: Boolean = false,
+    val solicitudesPausadas: Boolean = false
 )
 
 /** Respuesta de POST /api/v1/admin/sesiones/{id}/cerrar */
@@ -39,4 +41,10 @@ data class ListaSesiones(
 @Serializable
 data class SesionActiva(
     val sesion: SesionDto? = null,
+)
+
+/** Cuerpo de PUT /api/v1/admin/sesiones/{id}/pausa: true pausa las solicitudes y los votos, false los reanuda. */
+@Serializable
+data class PausaSolicitudes(
+    val pausadas: Boolean,
 )
