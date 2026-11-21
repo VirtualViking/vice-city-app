@@ -112,6 +112,13 @@ private fun Encabezado(estado: EstadoColaCliente) {
                 color = Colores.TextoSecundario, fontSize = 13.sp, lineHeight = 18.sp,
             )
         }
+        if (estado.cola?.solicitudesPausadas == true) {
+            Text(
+                "El DJ pausó las solicitudes y los votos por un momento. La música sigue.",
+                color = Colores.Aviso, fontSize = 13.sp,
+                modifier = Modifier.fillMaxWidth().background(Colores.AvisoSuave, RoundedCornerShape(10.dp)).padding(10.dp),
+            )
+        }
         if (estado.sinConexion) {
             Text(
                 "Sin conexión: la cola puede no estar al día.",

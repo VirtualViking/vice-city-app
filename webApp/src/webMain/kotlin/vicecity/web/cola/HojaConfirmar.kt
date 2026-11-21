@@ -58,6 +58,10 @@ fun HojaConfirmar(
                 Nota("Las solicitudes se habilitan cuando el DJ abra la sesión de esta noche. Mientras tanto puedes seguir buscando.")
                 BotonNeon("Entendido", alPresionar = alCerrar, modifier = Modifier.fillMaxWidth())
             }
+            estado.cola?.solicitudesPausadas == true -> {
+                Nota("El DJ pausó las solicitudes y los votos por un momento. Vuelve a intentarlo en unos minutos.")
+                BotonNeon("Entendido", alPresionar = alCerrar, modifier = Modifier.fillMaxWidth())
+            }
             enCola != null && (estado.esMia(enCola.solicitudId) || estado.yaVote(enCola.solicitudId)) -> {
                 Datos(listOf("Ya está en la cola en" to "posición ${estado.posicion(enCola.solicitudId)}", "Votos" to "${enCola.votos}"))
                 Nota("Esta canción ya tiene tu voto.")

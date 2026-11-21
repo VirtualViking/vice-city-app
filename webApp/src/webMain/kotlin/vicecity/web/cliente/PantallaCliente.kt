@@ -33,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import vicecity.compartido.CodigosError
 import vicecity.compartido.EstablecimientoPublico
+import vicecity.compartido.EstadoEstablecimiento
 import vicecity.compartido.ItemCola
 import vicecity.compartido.ResultadoBusqueda
 import vicecity.compartido.ResultadoSolicitud
@@ -47,7 +48,11 @@ import vicecity.web.cola.ResultadoPedido
 import vicecity.web.componentes.IconoBuscar
 import vicecity.web.componentes.IconoCola
 import vicecity.web.componentes.IconoListo
+import vicecity.web.componentes.IconoReloj
+import vicecity.web.componentes.MensajeCentral
+import vicecity.web.componentes.TituloNeon
 import vicecity.web.datos.ClienteApi
+import vicecity.web.datos.HoraColombia
 import vicecity.web.tema.Colores
 
 private enum class Pestana { BUSCAR, COLA }
@@ -86,6 +91,12 @@ fun PantallaCliente(api: ClienteApi, codigoQr: String, establecimiento: Establec
             alActualizar()
             delay(ESPERA_SIN_SESION_MS)
         }
+    }
+
+    // Fuera de horario o en mantenimiento el QR está desactivado: se avisa y se sigue consultando cada 20 s
+    if (establecimiento.estado == EstadoEstablecimiento.FUERA_DE_HORARIO || establecimiento.estado == EstadoEstablecimiento.MANTENIMIENTO) {
+        QrInactivo(establecimiento)
+        return
     }
 
     var pestana by remember { mutableStateOf(Pestana.BUSCAR) }
@@ -188,6 +199,27 @@ fun PantallaCliente(api: ClienteApi, codigoQr: String, establecimiento: Establec
             )
             Hoja.LimiteVotos -> HojaLimiteVotos(estadoCola?.actividad, alCerrar = { hoja = null })
             null -> {}
+        }
+    }
+}
+
+/** Pantalla del QR desactivado (Figura 9 del diseño): fuera de horario o en mantenimiento. */
+@Composable
+private fun QrInactivo(establecimiento: EstablecimientoPublico) {
+    val mantenimiento = establecimiento.estado == EstadoEstablecimiento.MANTENIMIENTO
+    Box(Modifier.fillMaxSize().background(Colores.Fondo), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+            TituloNeon(establecimiento.nombre, tamano = 28.sp)
+            MensajeCentral(
+                titulo = if (mantenimiento) "Estamos en mantenimiento" else "Fuera de horario",
+                texto = when {
+                    mantenimiento -> "Estamos preparando la música de la próxima sesión. Vuelve a intentarlo en unos minutos."
+                    establecimiento.proximaApertura != null ->
+                        "Vuelve a escanear el QR ${HoraColombia.diaYHora(establecimiento.proximaApertura)}, cuando se abran las solicitudes."
+                    else -> "Las solicitudes están cerradas por ahora."
+                },
+                icono = { IconoReloj(Colores.Apagado, tamano = 40.dp) },
+            )
         }
     }
 }
