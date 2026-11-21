@@ -15,13 +15,20 @@ import java.time.Instant
 import java.util.UUID
 
 /** Lo que pasa cuando un cliente escanea el QR del establecimiento (RF-01). */
-class AccesoService(private val bd: BaseDatos) {
+class AccesoService(private val bd: BaseDatos, private val operacion: OperacionService) {
 
     /**
-     * Resuelve el código del QR, registra el dispositivo y, si hay una sesión abierta,
-     * registra ACCESO_SESION una sola vez por dispositivo y sesión.
+     * Resuelve el código del QR, aplica el horario (puede abrir o cerrar la sesión), registra el dispositivo y,
+     * si hay una sesión abierta, registra ACCESO_SESION una sola vez por dispositivo y sesión.
+     * Fuera de horario o en mantenimiento el QR queda desactivado: el estado lo indica.
      */
-    suspend fun acceder(codigoQr: String, dispositivoHash: String): EstablecimientoPublico = bd.tx {
+    suspend fun acceder(codigoQr: String, dispositivoHash: String): EstablecimientoPublico {
+        val id = bd.tx { RepositorioEstablecimientos.porCodigoQr(codigoQr)?.get(Establecimientos.id) } ?: throw noEncontrado("el establecimiento")
+        operacion.reconciliar(id)
+        return bd.tx { accederEnTx(codigoQr, dispositivoHash) }
+    }
+
+    private fun accederEnTx(codigoQr: String, dispositivoHash: String): EstablecimientoPublico {
         val establecimiento = RepositorioEstablecimientos.porCodigoQr(codigoQr) ?: throw noEncontrado("el establecimiento")
         val establecimientoId = establecimiento[Establecimientos.id]
         val ahora = Instant.now()
@@ -39,9 +46,14 @@ class AccesoService(private val bd: BaseDatos) {
             )
         }
 
-        EstablecimientoPublico(
+        val (estado, proximaApertura) = operacion.estadoPublico(establecimiento, sesion)
+        return EstablecimientoPublico(
             nombre = establecimiento[Establecimientos.nombre],
-            sesionActiva = sesion?.let { SesionPublica(it[Sesiones.id].toString(), Modo.valueOf(it[Sesiones.modoActual])) },
+            sesionActiva = sesion?.let {
+                SesionPublica(it[Sesiones.id].toString(), Modo.valueOf(it[Sesiones.modoActual]), it[Sesiones.solicitudesPausadas])
+            },
+            estado = estado,
+            proximaApertura = proximaApertura?.toString(),
         )
     }
 
