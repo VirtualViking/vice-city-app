@@ -16,13 +16,21 @@ import vicecity.web.bienvenida.PantallaBienvenida
 import vicecity.web.cliente.PantallaCliente
 import vicecity.web.datos.ClienteApi
 import vicecity.web.panel.PanelPersonal
+import vicecity.web.pantalla.PantallaPublica
 import vicecity.web.tema.Colores
 import vicecity.web.tema.TemaViceCity
 
+/**
+ * Raíz de la web. La misma app sirve tres pantallas según la dirección:
+ * - ".../#panel": panel del personal (DJ y administrador).
+ * - ".../#pantalla": vista pública con el reproductor, para la pantalla del local.
+ * - cualquier otra: la app del cliente que abre el QR.
+ */
 @Composable
 fun App() {
     when (window.location.hash.removePrefix("#")) {
         "panel" -> TemaViceCity { PanelPersonal() }
+        "pantalla" -> TemaViceCity { PantallaPublica() }
         else -> AppCliente()
     }
 }

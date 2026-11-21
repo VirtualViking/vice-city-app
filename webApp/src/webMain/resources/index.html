@@ -19,9 +19,12 @@
 
   <style>
     html, body { margin: 0; height: 100%; background: #211936; overflow: hidden; }
+    /* Reproductor de YouTube de la vista pública: llena su recuadro */
+    .yt-contenedor, .yt-contenedor iframe { width: 100%; height: 100%; border: 0; }
   </style>
 
   <script src="config.js"></script>
+  <script src="puente-youtube.js"></script>
   <script>
     // Instalación de la app (Chrome y Edge en Android): el navegador avisa con "beforeinstallprompt" que se puede instalar.
     // Se guarda ese aviso para abrir la ventana de instalación desde el botón "Descargar esta app" de la bienvenida.
