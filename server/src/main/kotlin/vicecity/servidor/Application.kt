@@ -27,6 +27,9 @@ import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.pingPeriod
 import io.ktor.server.websocket.timeout
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import vicecity.compartido.CodigosError
 import vicecity.compartido.ErrorApi
@@ -40,6 +43,7 @@ import vicecity.servidor.rutas.rutasAuth
 import vicecity.servidor.rutas.rutasCliente
 import vicecity.servidor.rutas.rutasEstablecimiento
 import vicecity.servidor.rutas.rutasMiniaturas
+import vicecity.servidor.rutas.rutasOperacion
 import vicecity.servidor.rutas.rutasPanel
 import vicecity.servidor.rutas.rutasSesiones
 import vicecity.servidor.seguridad.HuellaDispositivo
@@ -51,13 +55,18 @@ import vicecity.servidor.servicios.BusquedaService
 import vicecity.servidor.servicios.ColaService
 import vicecity.servidor.servicios.Inicializador
 import vicecity.servidor.servicios.ListaDefectoService
+import vicecity.servidor.servicios.OperacionService
 import vicecity.servidor.servicios.QrService
 import vicecity.servidor.servicios.ReproductorService
 import vicecity.servidor.servicios.SesionService
 import vicecity.servidor.servicios.SugerenciaService
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 const val VERSION = "0.5.0"
+
+/** Cada cuánto se revisa el horario para abrir o cerrar sesiones automáticamente. */
+private val REVISION_HORARIO = 1.minutes
 
 fun main() {
     // Render asigna el puerto en la variable PORT; en local se usa 8081
@@ -89,7 +98,8 @@ fun Application.modulo(
     fun bd(): BaseDatos = baseDatos ?: throw baseDatosNoDisponible()
     val auth by lazy { AuthService(bd(), jwt) }
     val sesiones by lazy { SesionService(bd()) }
-    val acceso by lazy { AccesoService(bd()) }
+    val operacion by lazy { OperacionService(bd()) }
+    val acceso by lazy { AccesoService(bd(), operacion) }
     monitor.subscribe(ApplicationStopped) { http.close() }
     val catalogoVideos = catalogo ?: catalogoDesde(config, http)
     val miniaturas = Miniaturas(http)
@@ -142,6 +152,17 @@ fun Application.modulo(
         jwt.configurar(this)
     }
 
+    // Programación automática: aplica el horario cada minuto mientras el servidor está despierto
+    if (baseDatos != null) {
+        launch {
+            while (isActive) {
+                runCatching { operacion.reconciliarTodos() }
+                    .onFailure { environment.log.warn("Falló la revisión del horario: {}", it.message) }
+                delay(REVISION_HORARIO)
+            }
+        }
+    }
+
     routing {
         get(Rutas.SALUD) {
             call.respond(Salud(estado = "ok", baseDatos = BaseDatos.estado(baseDatos), version = VERSION))
@@ -150,6 +171,7 @@ fun Application.modulo(
         rutasSesiones { sesiones }
         rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias }, cola = { cola })
         rutasPanel(reproductor = { reproductor }, listaDefecto = { listaDefecto }, bloqueos = { bloqueos }, busqueda = { busqueda })
+        rutasOperacion { operacion }
         rutasEstablecimiento { qr }
         rutasMiniaturas(miniaturas)
     }
