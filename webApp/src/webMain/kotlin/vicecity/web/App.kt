@@ -8,18 +8,28 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import kotlinx.browser.window
 import vicecity.web.acceso.EstadoAcceso
 import vicecity.web.acceso.ModeloAcceso
 import vicecity.web.acceso.PantallaAcceso
 import vicecity.web.bienvenida.PantallaBienvenida
 import vicecity.web.cliente.PantallaCliente
 import vicecity.web.datos.ClienteApi
+import vicecity.web.panel.PanelPersonal
 import vicecity.web.tema.Colores
 import vicecity.web.tema.TemaViceCity
 
-/** Raíz de la app del cliente: primero resuelve el QR (acceso), luego la bienvenida si llegó por el QR, y después la búsqueda y la cola. */
 @Composable
 fun App() {
+    when (window.location.hash.removePrefix("#")) {
+        "panel" -> TemaViceCity { PanelPersonal() }
+        else -> AppCliente()
+    }
+}
+
+/** App del cliente: primero resuelve el QR (acceso), luego la bienvenida si llegó por el QR, y después la búsqueda y la cola. */
+@Composable
+private fun AppCliente() {
     val api = remember { ClienteApi() }
     val alcance = rememberCoroutineScope()
     val acceso = remember { ModeloAcceso(api, alcance) }

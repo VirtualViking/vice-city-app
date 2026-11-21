@@ -1,6 +1,8 @@
 package vicecity.web.datos
 
 import kotlinx.browser.localStorage
+import kotlinx.serialization.json.Json
+import vicecity.compartido.LoginRespuesta
 import kotlinx.browser.window
 
 /**
@@ -11,6 +13,7 @@ object Almacen {
     private const val CLAVE_DISPOSITIVO = "vicecity.dispositivo"
     private const val CLAVE_ESTABLECIMIENTO = "vicecity.establecimiento"
     private const val CLAVE_AVISO_INSTALAR = "vicecity.avisoInstalarCerrado"
+    private const val CLAVE_CUENTA = "vicecity.cuentaPersonal"
 
     var dispositivo: String?
         get() = leer(CLAVE_DISPOSITIVO)
@@ -24,6 +27,14 @@ object Almacen {
     var avisoInstalarCerrado: Boolean
         get() = leer(CLAVE_AVISO_INSTALAR) == "si"
         set(valor) = escribir(CLAVE_AVISO_INSTALAR, if (valor) "si" else null)
+
+    /**
+     * Cuenta del personal con su token (12 horas). La comparten el panel y la vista pública,
+     * que se abren en pestañas distintas del mismo navegador.
+     */
+    var cuenta: LoginRespuesta?
+        get() = leer(CLAVE_CUENTA)?.let { runCatching { Json.decodeFromString(LoginRespuesta.serializer(), it) }.getOrNull() }
+        set(valor) = escribir(CLAVE_CUENTA, valor?.let { Json.encodeToString(LoginRespuesta.serializer(), it) })
 
     private fun leer(clave: String): String? = runCatching { localStorage.getItem(clave) }.getOrNull()
 
