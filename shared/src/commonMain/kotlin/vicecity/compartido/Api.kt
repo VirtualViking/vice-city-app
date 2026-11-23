@@ -43,6 +43,16 @@ object Rutas {
     const val MANTENIMIENTO = "$OPERACION/mantenimiento"
     const val LIMPIEZA = "$OPERACION/limpieza"
 
+    // Analítica (solo administrador)
+    /** Tablero: ?desde=yyyy-MM-dd&hasta=yyyy-MM-dd&sesion={id} (fechas de Colombia, opcionales). */
+    const val ANALITICA = "$API_PREFIJO/admin/analitica"
+    /** Sesiones del periodo para el selector: ?desde=&hasta= */
+    const val ANALITICA_SESIONES = "$ANALITICA/sesiones"
+    /** POST: ejecuta el pipeline de datos ahora. */
+    const val ANALITICA_PIPELINE = "$ANALITICA/pipeline"
+    /** Calidad de los datos y evidencia de anonimización. */
+    const val ANALITICA_CALIDAD = "$ANALITICA/calidad"
+
     // Cliente (públicos, con X-Dispositivo-Id)
     fun establecimiento(codigoQr: String) = "$API_PREFIJO/establecimientos/$codigoQr"
     fun busqueda(codigoQr: String) = "${establecimiento(codigoQr)}/busqueda"
