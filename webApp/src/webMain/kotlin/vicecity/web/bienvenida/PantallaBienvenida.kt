@@ -45,6 +45,7 @@ import vicecity.web.componentes.IconoDescargar
 import vicecity.web.componentes.TituloNeon
 import vicecity.web.datos.Instalacion
 import vicecity.web.datos.Navegador
+import vicecity.web.privacidad.EnlacePrivacidad
 import vicecity.web.tema.Colores
 
 /**
@@ -96,6 +97,7 @@ fun PantallaBienvenida(establecimiento: EstablecimientoPublico, alContinuar: () 
                     color = Colores.TextoSecundario, fontSize = 13.sp, lineHeight = 19.sp, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                EnlacePrivacidad()
             }
         }
 
