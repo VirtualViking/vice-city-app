@@ -48,6 +48,7 @@ import vicecity.web.componentes.brilloNeon
 import vicecity.web.datos.Almacen
 import vicecity.web.datos.ClienteApi
 import vicecity.web.datos.Navegador
+import vicecity.web.privacidad.EnlacePrivacidad
 import vicecity.web.tema.Colores
 import vicecity.web.tema.Medidas
 
@@ -115,6 +116,7 @@ fun PantallaBusqueda(
                 )
             }
             contenido(estado, api, alElegir)
+            filaCompleta { EnlacePrivacidad(Modifier.padding(top = 24.dp)) }
         }
     }
 }
