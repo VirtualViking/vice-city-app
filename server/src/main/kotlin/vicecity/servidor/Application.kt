@@ -35,6 +35,7 @@ import vicecity.compartido.CodigosError
 import vicecity.compartido.ErrorApi
 import vicecity.compartido.Rutas
 import vicecity.compartido.Salud
+import vicecity.servidor.analitica.PipelineDatos
 import vicecity.servidor.integraciones.CatalogoSinConfigurar
 import vicecity.servidor.integraciones.CatalogoVideos
 import vicecity.servidor.integraciones.Miniaturas
@@ -63,10 +64,13 @@ import vicecity.servidor.servicios.SugerenciaService
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-const val VERSION = "0.5.0"
+const val VERSION = "0.6.0"
 
 /** Cada cuánto se revisa el horario para abrir o cerrar sesiones automáticamente. */
 private val REVISION_HORARIO = 1.minutes
+
+/** Cada cuánto corre el pipeline de datos de la capa analítica. */
+private val INTERVALO_PIPELINE = 5.minutes
 
 fun main() {
     // Render asigna el puerto en la variable PORT; en local se usa 8081
@@ -110,6 +114,7 @@ fun Application.modulo(
     val reproductor by lazy { ReproductorService(bd()) }
     val listaDefecto by lazy { ListaDefectoService(bd()) }
     val bloqueos by lazy { BloqueoService(bd()) }
+    val pipeline by lazy { PipelineDatos(bd()) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -159,6 +164,14 @@ fun Application.modulo(
                 runCatching { operacion.reconciliarTodos() }
                     .onFailure { environment.log.warn("Falló la revisión del horario: {}", it.message) }
                 delay(REVISION_HORARIO)
+            }
+        }
+        // Pipeline de datos: la primera ejecución espera un intervalo para no competir con el arranque
+        launch {
+            while (isActive) {
+                delay(INTERVALO_PIPELINE)
+                runCatching { pipeline.ejecutar("AUTOMATICA") }
+                    .onFailure { environment.log.warn("Falló el pipeline de datos: {}", it.message) }
             }
         }
     }

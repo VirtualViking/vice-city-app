@@ -62,6 +62,7 @@ abstract class PruebaIntegracion {
         check(nombreBase.endsWith("_test")) { "TEST_DATABASE_URL debe apuntar a una base de pruebas (nombre terminado en _test), no a '$nombreBase'" }
         bd = compartida ?: BaseDatos.conectar(url)!!.also { compartida = it }
         transaction(bd.database) {
+            exec("DROP SCHEMA IF EXISTS analitica CASCADE")
             exec("DROP SCHEMA public CASCADE")
             exec("CREATE SCHEMA public")
         }
