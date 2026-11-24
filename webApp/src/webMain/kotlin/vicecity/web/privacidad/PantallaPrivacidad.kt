@@ -50,13 +50,13 @@ fun PantallaPrivacidad() {
                 Punto("Para generar estadísticas agregadas del establecimiento, como las canciones más pedidas o los horarios con más participación.")
             }
             Seccion("Cómo se protegen") {
-                Punto("Nuestro servidor no guarda tu identificador original, solo una versión cifrada con una clave secreta (HMAC-SHA256).")
+                Punto("Nuestro servidor no guarda tu identificador original. Guarda una versión transformada con una clave secreta (HMAC-SHA256), que no permite recuperar el original.")
                 Punto("Para las estadísticas, esa versión se reemplaza por un código que solo vale durante una noche. Cuando la sesión se cierra, la clave que generó ese código se borra y ya no se puede relacionar con tu navegador.")
                 Punto("Solo el administrador del establecimiento ve las estadísticas, y siempre agregadas. El DJ no las ve. No compartimos estos datos con terceros.")
             }
             Seccion("Cuánto tiempo se guardan") {
                 Punto("Tus solicitudes y votos: 90 días después del cierre de la sesión.")
-                Punto("La versión cifrada de tu identificador: 12 meses desde tu última visita.")
+                Punto("La versión transformada de tu identificador: 12 meses desde tu última visita.")
                 Punto("El registro interno de lo que pasa en la app: 24 meses.")
                 Punto("Las estadísticas anónimas se conservan, porque no permiten saber quién eres.")
             }
