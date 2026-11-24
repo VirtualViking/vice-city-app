@@ -17,10 +17,12 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
+import vicecity.compartido.CalidadDatos
 import vicecity.compartido.CambioMantenimiento
 import vicecity.compartido.CierreSesion
 import vicecity.compartido.CodigosError
 import vicecity.compartido.ConfiguracionOperacion
+import vicecity.compartido.EjecucionPipeline
 import vicecity.compartido.EliminacionSolicitud
 import vicecity.compartido.ErrorApi
 import vicecity.compartido.EstadoOperacion
@@ -37,6 +39,8 @@ import vicecity.compartido.RespuestaBusqueda
 import vicecity.compartido.ResultadoLimpieza
 import vicecity.compartido.Rutas
 import vicecity.compartido.SesionDto
+import vicecity.compartido.SesionesAnaliticas
+import vicecity.compartido.TableroAnalitico
 import vicecity.web.ViceCityConfig
 
 /**
@@ -87,6 +91,19 @@ class ClientePersonal(private val base: String = ViceCityConfig.apiBase.trimEnd(
     suspend fun mantenimiento(activo: Boolean): EstadoOperacion =
         pedir(Rutas.MANTENIMIENTO, HttpMethod.Put) { json(CambioMantenimiento(activo)) }
     suspend fun limpiar(): ResultadoLimpieza = pedir(Rutas.LIMPIEZA, HttpMethod.Post)
+
+    // Analítica (solo administrador). Fechas yyyy-MM-dd de Colombia; [sesion] null: todas las del periodo.
+    suspend fun tablero(desde: String, hasta: String, sesion: String?): TableroAnalitico = pedir(Rutas.ANALITICA) {
+        parameter("desde", desde)
+        parameter("hasta", hasta)
+        if (sesion != null) parameter("sesion", sesion)
+    }
+    suspend fun sesionesAnaliticas(desde: String, hasta: String): SesionesAnaliticas = pedir(Rutas.ANALITICA_SESIONES) {
+        parameter("desde", desde)
+        parameter("hasta", hasta)
+    }
+    suspend fun ejecutarPipeline(): EjecucionPipeline = pedir(Rutas.ANALITICA_PIPELINE, HttpMethod.Post)
+    suspend fun calidad(): CalidadDatos = pedir(Rutas.ANALITICA_CALIDAD)
 
     private inline fun <reified T : Any> HttpRequestBuilder.json(cuerpo: T) {
         contentType(ContentType.Application.Json)

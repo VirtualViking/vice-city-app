@@ -40,6 +40,30 @@ object HoraColombia {
         return "$cuando a las ${hora(iso)}"
     }
 
+    /** Fecha de hoy en Colombia menos [diasAtras] días, en formato yyyy-MM-dd. */
+    fun fecha(diasAtras: Int = 0): String {
+        val dia = (Clock.System.now().epochSeconds + DESFASE_SEG).floorDiv(86_400L) - diasAtras
+        val (anio, mes, diaMes) = fechaCivil(dia)
+        return "$anio-${mes.toString().padStart(2, '0')}-${diaMes.toString().padStart(2, '0')}"
+    }
+
+    /** "vie 20 nov · 8:00 p. m." */
+    fun fechaCorta(iso: String?): String {
+        val local = segundosLocales(iso) ?: return ""
+        val dia = local.floorDiv(86_400L)
+        val (_, mes, diaMes) = fechaCivil(dia)
+        return "${DIAS[(dia + 4).mod(7L).toInt()].take(3)} $diaMes ${MESES[mes - 1].take(3)} · ${hora(iso)}"
+    }
+
+    /** "45 s", "17 min" o "3 h 07 min". */
+    fun duracion(segundos: Long?): String {
+        if (segundos == null) return "Sin datos"
+        if (segundos < 60) return "$segundos s"
+        val minutos = segundos / 60
+        if (minutos < 60) return "$minutos min"
+        return "${minutos / 60} h ${(minutos % 60).toString().padStart(2, '0')} min"
+    }
+
     /** Minutos desde [iso] hasta ahora (0 si es futuro o no se puede leer). */
     fun minutosDesde(iso: String?): Int {
         val instante = iso?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return 0
