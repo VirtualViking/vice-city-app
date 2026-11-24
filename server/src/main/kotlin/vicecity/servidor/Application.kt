@@ -40,6 +40,7 @@ import vicecity.servidor.integraciones.CatalogoSinConfigurar
 import vicecity.servidor.integraciones.CatalogoVideos
 import vicecity.servidor.integraciones.Miniaturas
 import vicecity.servidor.integraciones.YouTubeCatalogo
+import vicecity.servidor.rutas.rutasAnalitica
 import vicecity.servidor.rutas.rutasAuth
 import vicecity.servidor.rutas.rutasCliente
 import vicecity.servidor.rutas.rutasEstablecimiento
@@ -50,6 +51,7 @@ import vicecity.servidor.rutas.rutasSesiones
 import vicecity.servidor.seguridad.HuellaDispositivo
 import vicecity.servidor.seguridad.ServicioJwt
 import vicecity.servidor.servicios.AccesoService
+import vicecity.servidor.servicios.AnaliticaService
 import vicecity.servidor.servicios.AuthService
 import vicecity.servidor.servicios.BloqueoService
 import vicecity.servidor.servicios.BusquedaService
@@ -115,6 +117,7 @@ fun Application.modulo(
     val listaDefecto by lazy { ListaDefectoService(bd()) }
     val bloqueos by lazy { BloqueoService(bd()) }
     val pipeline by lazy { PipelineDatos(bd()) }
+    val analitica by lazy { AnaliticaService(bd(), pipeline) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -185,6 +188,7 @@ fun Application.modulo(
         rutasCliente(huella, acceso = { acceso }, busqueda = { busqueda }, sugerencias = { sugerencias }, cola = { cola })
         rutasPanel(reproductor = { reproductor }, listaDefecto = { listaDefecto }, bloqueos = { bloqueos }, busqueda = { busqueda })
         rutasOperacion { operacion }
+        rutasAnalitica { analitica }
         rutasEstablecimiento { qr }
         rutasMiniaturas(miniaturas)
     }
