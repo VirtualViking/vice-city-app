@@ -22,6 +22,10 @@ object Rutas {
 
     const val CONFIGURACION = "$API_PREFIJO/admin/configuracion"
 
+    const val PERSONAL = "$API_PREFIJO/admin/personal"
+    fun cuentaPersonal(personalId: String) = "$PERSONAL/$personalId"
+    fun clavePersonal(personalId: String) = "$PERSONAL/$personalId/clave"
+
     fun cerrarSesion(sesionId: String) = "$SESIONES/$sesionId/cerrar"
     fun pausaSolicitudes(sesionId: String) = "$SESIONES/$sesionId/pausa"
 
