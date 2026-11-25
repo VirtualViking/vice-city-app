@@ -20,6 +20,8 @@ object Rutas {
     const val SESION_ACTIVA = "$SESIONES/activa"
     const val ESTABLECIMIENTO_QR = "$API_PREFIJO/admin/establecimiento/qr"
 
+    const val CONFIGURACION = "$API_PREFIJO/admin/configuracion"
+
     fun cerrarSesion(sesionId: String) = "$SESIONES/$sesionId/cerrar"
     fun pausaSolicitudes(sesionId: String) = "$SESIONES/$sesionId/pausa"
 
