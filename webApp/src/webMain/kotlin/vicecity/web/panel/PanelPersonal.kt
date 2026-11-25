@@ -39,8 +39,8 @@ import vicecity.web.datos.ClientePersonal
 import vicecity.web.tema.Colores
 
 /**
- * Panel del personal (RF-14, RF-16 a RF-18, RF-23): se abre en ".../#panel".
- * El DJ ve Sesión y Lista por defecto; el administrador, además, Operación y Analítica.
+ * Panel del personal (RF-14 a RF-19, RF-23): se abre en ".../#panel".
+ * El DJ ve Sesión y Lista por defecto; el administrador, además, Operación, Configuración y Analítica.
  */
 @Composable
 fun PanelPersonal() {
@@ -71,6 +71,7 @@ fun PanelPersonal() {
             add(SeccionPanel.SESION to "Sesión")
             add(SeccionPanel.LISTA_DEFECTO to "Lista por defecto")
             if (modelo.esAdmin) add(SeccionPanel.OPERACION to "Operación")
+            if (modelo.esAdmin) add(SeccionPanel.CONFIGURACION to "Configuración")
             if (modelo.esAdmin) add(SeccionPanel.ANALITICA to "Analítica")
         }
         val nombreLocal = modelo.reproduccion?.establecimiento ?: "Panel del personal"
@@ -87,6 +88,7 @@ fun PanelPersonal() {
                         SeccionPanel.SESION -> SeccionSesion(modelo, miniaturas, ancho)
                         SeccionPanel.LISTA_DEFECTO -> SeccionListaDefecto(modelo, miniaturas, ancho)
                         SeccionPanel.OPERACION -> SeccionOperacion(modelo)
+                        SeccionPanel.CONFIGURACION -> SeccionConfiguracion(modelo, ancho)
                         SeccionPanel.ANALITICA -> SeccionAnalitica(modelo, miniaturas, ancho)
                     }
                 }
