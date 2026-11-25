@@ -43,6 +43,7 @@ import vicecity.servidor.integraciones.YouTubeCatalogo
 import vicecity.servidor.rutas.rutasAnalitica
 import vicecity.servidor.rutas.rutasAuth
 import vicecity.servidor.rutas.rutasCliente
+import vicecity.servidor.rutas.rutasConfiguracion
 import vicecity.servidor.rutas.rutasEstablecimiento
 import vicecity.servidor.rutas.rutasMiniaturas
 import vicecity.servidor.rutas.rutasOperacion
@@ -56,6 +57,7 @@ import vicecity.servidor.servicios.AuthService
 import vicecity.servidor.servicios.BloqueoService
 import vicecity.servidor.servicios.BusquedaService
 import vicecity.servidor.servicios.ColaService
+import vicecity.servidor.servicios.ConfiguracionService
 import vicecity.servidor.servicios.Inicializador
 import vicecity.servidor.servicios.ListaDefectoService
 import vicecity.servidor.servicios.OperacionService
@@ -66,7 +68,7 @@ import vicecity.servidor.servicios.SugerenciaService
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-const val VERSION = "0.6.0"
+const val VERSION = "0.7.0"
 
 /** Cada cuánto se revisa el horario para abrir o cerrar sesiones automáticamente. */
 private val REVISION_HORARIO = 1.minutes
@@ -112,6 +114,7 @@ fun Application.modulo(
     val busqueda by lazy { BusquedaService(bd(), catalogoVideos, config.reglasBusqueda) }
     val sugerencias by lazy { SugerenciaService(bd(), config.reglasBusqueda) }
     val qr by lazy { QrService(bd(), config.webUrl) }
+    val configuracion by lazy { ConfiguracionService(bd(), config.webUrl) }
     val cola by lazy { ColaService(bd(), config.maxVotosPorSesion) }
     val reproductor by lazy { ReproductorService(bd()) }
     val listaDefecto by lazy { ListaDefectoService(bd()) }
@@ -190,6 +193,7 @@ fun Application.modulo(
         rutasOperacion { operacion }
         rutasAnalitica { analitica }
         rutasEstablecimiento { qr }
+        rutasConfiguracion { configuracion }
         rutasMiniaturas(miniaturas)
     }
 }
