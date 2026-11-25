@@ -22,7 +22,7 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-enum class SeccionPanel { SESION, LISTA_DEFECTO, OPERACION, ANALITICA }
+enum class SeccionPanel { SESION, LISTA_DEFECTO, OPERACION, CONFIGURACION, ANALITICA }
 
 /** Mensaje corto que se muestra unos segundos. */
 data class AvisoPanel(val texto: String, val esError: Boolean = false)

@@ -18,9 +18,11 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import vicecity.compartido.CalidadDatos
+import vicecity.compartido.CambioConfiguracion
 import vicecity.compartido.CambioMantenimiento
 import vicecity.compartido.CierreSesion
 import vicecity.compartido.CodigosError
+import vicecity.compartido.ConfiguracionEstablecimiento
 import vicecity.compartido.ConfiguracionOperacion
 import vicecity.compartido.EjecucionPipeline
 import vicecity.compartido.EliminacionSolicitud
@@ -91,6 +93,13 @@ class ClientePersonal(private val base: String = ViceCityConfig.apiBase.trimEnd(
     suspend fun mantenimiento(activo: Boolean): EstadoOperacion =
         pedir(Rutas.MANTENIMIENTO, HttpMethod.Put) { json(CambioMantenimiento(activo)) }
     suspend fun limpiar(): ResultadoLimpieza = pedir(Rutas.LIMPIEZA, HttpMethod.Post)
+
+    // Configuración del establecimiento (solo administrador)
+    suspend fun configuracion(): ConfiguracionEstablecimiento = pedir(Rutas.CONFIGURACION)
+    suspend fun guardarConfiguracion(cambio: CambioConfiguracion): ConfiguracionEstablecimiento =
+        pedir(Rutas.CONFIGURACION, HttpMethod.Put) { json(cambio) }
+    /** Imagen PNG del código QR del establecimiento, de [tamano] píxeles de lado. */
+    suspend fun qr(tamano: Int): ByteArray = pedir(Rutas.ESTABLECIMIENTO_QR) { parameter("tamano", tamano) }
 
     // Analítica (solo administrador). Fechas yyyy-MM-dd de Colombia; [sesion] null: todas las del periodo.
     suspend fun tablero(desde: String, hasta: String, sesion: String?): TableroAnalitico = pedir(Rutas.ANALITICA) {
