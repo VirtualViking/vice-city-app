@@ -48,6 +48,7 @@ import vicecity.servidor.rutas.rutasEstablecimiento
 import vicecity.servidor.rutas.rutasMiniaturas
 import vicecity.servidor.rutas.rutasOperacion
 import vicecity.servidor.rutas.rutasPanel
+import vicecity.servidor.rutas.rutasPersonal
 import vicecity.servidor.rutas.rutasSesiones
 import vicecity.servidor.seguridad.HuellaDispositivo
 import vicecity.servidor.seguridad.ServicioJwt
@@ -61,6 +62,7 @@ import vicecity.servidor.servicios.ConfiguracionService
 import vicecity.servidor.servicios.Inicializador
 import vicecity.servidor.servicios.ListaDefectoService
 import vicecity.servidor.servicios.OperacionService
+import vicecity.servidor.servicios.PersonalService
 import vicecity.servidor.servicios.QrService
 import vicecity.servidor.servicios.ReproductorService
 import vicecity.servidor.servicios.SesionService
@@ -121,6 +123,7 @@ fun Application.modulo(
     val bloqueos by lazy { BloqueoService(bd()) }
     val pipeline by lazy { PipelineDatos(bd()) }
     val analitica by lazy { AnaliticaService(bd(), pipeline) }
+    val personal by lazy { PersonalService(bd()) }
 
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; explicitNulls = false })
@@ -160,7 +163,8 @@ fun Application.modulo(
         timeout = 60.seconds
     }
     install(Authentication) {
-        jwt.configurar(this)
+        // Con base de datos, cada petición confirma que la cuenta sigue activa y toma su rol actual
+        jwt.configurar(this, vigente = baseDatos?.let { { usuario -> personal.vigente(usuario) } })
     }
 
     // Programación automática: aplica el horario cada minuto mientras el servidor está despierto
@@ -194,6 +198,7 @@ fun Application.modulo(
         rutasAnalitica { analitica }
         rutasEstablecimiento { qr }
         rutasConfiguracion { configuracion }
+        rutasPersonal { personal }
         rutasMiniaturas(miniaturas)
     }
 }

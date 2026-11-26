@@ -18,7 +18,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.toJavaDuration
 
-/** Usuario del personal autenticado, tomado del token. */
+/** Usuario del personal autenticado: id y establecimiento del token; rol de la base de datos si se pudo consultar. */
 data class UsuarioPersonal(val personalId: UUID, val establecimientoId: UUID, val rol: Rol)
 
 const val AUTH_PERSONAL = "personal"
@@ -41,18 +41,24 @@ class ServicioJwt(secreto: String?, private val duracion: Duration = 12.hours) {
         return token to expira
     }
 
-    fun configurar(config: AuthenticationConfig) {
+    /**
+     * Registra la autenticación JWT. Con [vigente], cada petición comprueba la cuenta en la base de datos (HU-18):
+     * si fue desactivada el token deja de valer (401) y, si le cambiaron el rol, se aplica el rol nuevo sin esperar
+     * a que el token expire. Sin base de datos (algunas pruebas) se confía solo en el token.
+     */
+    fun configurar(config: AuthenticationConfig, vigente: (suspend (UsuarioPersonal) -> UsuarioPersonal?)? = null) {
         config.jwt(AUTH_PERSONAL) {
             verifier(JWT.require(algoritmo).withIssuer(emisor).build())
             validate { credencial ->
                 val p = credencial.payload
-                runCatching {
+                val delToken = runCatching {
                     UsuarioPersonal(
                         personalId = UUID.fromString(p.subject),
                         establecimientoId = UUID.fromString(p.getClaim("est").asString()),
                         rol = Rol.valueOf(p.getClaim("rol").asString()),
                     )
                 }.getOrNull()
+                if (delToken == null || vigente == null) delToken else vigente(delToken)
             }
             challenge { _, _ ->
                 call.respond(HttpStatusCode.Unauthorized, ErrorApi(CodigosError.NO_AUTENTICADO, "Inicia sesión para continuar"))
