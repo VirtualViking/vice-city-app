@@ -40,6 +40,7 @@ import vicecity.web.tema.Colores
 
 /**
  * Panel del personal (RF-14 a RF-19, RF-23): se abre en ".../#panel".
+ * En pantallas anchas el menú va a la izquierda ([MenuLateral]); en el celular, como pestañas arriba.
  * El DJ ve Sesión y Lista por defecto; el administrador, además, Operación, Configuración, Personal y Analítica.
  */
 @Composable
@@ -68,12 +69,12 @@ fun PanelPersonal() {
     BoxWithConstraints(Modifier.fillMaxSize().background(Colores.Fondo)) {
         val ancho = maxWidth >= 900.dp
         val secciones = buildList {
-            add(SeccionPanel.SESION to "Sesión")
-            add(SeccionPanel.LISTA_DEFECTO to "Lista por defecto")
-            if (modelo.esAdmin) add(SeccionPanel.OPERACION to "Operación")
-            if (modelo.esAdmin) add(SeccionPanel.CONFIGURACION to "Configuración")
-            if (modelo.esAdmin) add(SeccionPanel.PERSONAL to "Personal")
-            if (modelo.esAdmin) add(SeccionPanel.ANALITICA to "Analítica")
+            add(OpcionMenu(SeccionPanel.SESION, "Sesión", IconoPanel.SESION))
+            add(OpcionMenu(SeccionPanel.LISTA_DEFECTO, "Lista por defecto", IconoPanel.LISTA_DEFECTO))
+            if (modelo.esAdmin) add(OpcionMenu(SeccionPanel.OPERACION, "Operación", IconoPanel.OPERACION))
+            if (modelo.esAdmin) add(OpcionMenu(SeccionPanel.CONFIGURACION, "Configuración", IconoPanel.CONFIGURACION))
+            if (modelo.esAdmin) add(OpcionMenu(SeccionPanel.PERSONAL, "Personal", IconoPanel.PERSONAL))
+            if (modelo.esAdmin) add(OpcionMenu(SeccionPanel.ANALITICA, "Analítica", IconoPanel.ANALITICA))
         }
         val nombreLocal = modelo.reproduccion?.establecimiento ?: "Panel del personal"
         val quien = "${cuenta.nombre} · ${if (cuenta.rol == Rol.ADMIN) "Administrador" else "DJ"}"
@@ -99,18 +100,10 @@ fun PanelPersonal() {
 
         if (ancho) {
             Row(Modifier.fillMaxSize()) {
-                Column(
-                    Modifier.width(250.dp).fillMaxHeight().background(Colores.Tarjeta).padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(nombreLocal, color = Colores.Texto, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 23.sp)
-                    Text(quien, color = Colores.TextoSecundario, fontSize = 13.sp, modifier = Modifier.padding(bottom = 18.dp))
-                    secciones.forEach { (seccion, nombre) ->
-                        ElementoMenu(nombre, elegido = modelo.seccion == seccion, alElegir = { modelo.seccion = seccion })
-                    }
-                    Box(Modifier.weight(1f))
-                    ElementoMenu("Salir de la cuenta", elegido = false, alElegir = modelo::salir)
-                }
+                MenuLateral(
+                    api = miniaturas, nombreLocal = nombreLocal, quien = quien, opciones = secciones,
+                    elegida = modelo.seccion, alElegir = { modelo.seccion = it }, alSalir = modelo::salir,
+                )
                 Box(Modifier.weight(1f).fillMaxHeight()) { contenido() }
             }
         } else {
@@ -127,8 +120,8 @@ fun PanelPersonal() {
                         )
                     }
                     Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp)) {
-                        secciones.forEach { (seccion, nombre) ->
-                            PestanaMenu(nombre, elegida = modelo.seccion == seccion, alElegir = { modelo.seccion = seccion })
+                        secciones.forEach { opcion ->
+                            PestanaMenu(opcion.nombre, elegida = modelo.seccion == opcion.seccion, alElegir = { modelo.seccion = opcion.seccion })
                         }
                     }
                 }
@@ -139,19 +132,6 @@ fun PanelPersonal() {
         aviso?.let { MensajePanel(it, Modifier.align(Alignment.BottomCenter)) }
         HojasPanel(modelo)
     }
-}
-
-@Composable
-private fun ElementoMenu(texto: String, elegido: Boolean, alElegir: () -> Unit) {
-    Text(
-        texto,
-        color = if (elegido) Colores.Rosa else Colores.Texto,
-        fontSize = 15.sp, fontWeight = if (elegido) FontWeight.Bold else FontWeight.SemiBold,
-        modifier = Modifier.fillMaxWidth()
-            .background(if (elegido) Colores.TarjetaAlta else Colores.Tarjeta, RoundedCornerShape(10.dp))
-            .clickable(role = Role.Tab, onClick = alElegir)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-    )
 }
 
 @Composable
