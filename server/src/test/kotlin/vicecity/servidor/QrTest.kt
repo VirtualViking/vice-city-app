@@ -15,6 +15,7 @@ import vicecity.compartido.CodigosError
 import vicecity.compartido.Rol
 import vicecity.compartido.Rutas
 import vicecity.servidor.dominio.EnlaceQr
+import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import javax.imageio.ImageIO
@@ -22,7 +23,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Código QR del establecimiento en PNG (RF-15): se lee con un lector real y lleva a la app con el código. */
+/** Código QR del establecimiento en PNG (RF-15 y RF-13): se lee con un lector real y lleva a la app con el código. */
 class QrTest : PruebaIntegracion() {
 
     @Test
@@ -49,11 +50,30 @@ class QrTest : PruebaIntegracion() {
     }
 
     @Test
-    fun `solo el ADMIN puede descargarlo`() = conApp {
+    fun `el DJ tambien lo obtiene para la vista publica, pero se necesita una cuenta`() = conApp {
         error(cliente.get(Rutas.ESTABLECIMIENTO_QR), HttpStatusCode.Unauthorized, CodigosError.NO_AUTENTICADO)
         crearPersonal("dj@vicecity.test", "clave-dj-123", Rol.DJ)
         val tokenDj = login("dj@vicecity.test", "clave-dj-123")
-        error(cliente.get(Rutas.ESTABLECIMIENTO_QR) { bearerAuth(tokenDj) }, HttpStatusCode.Forbidden, CodigosError.SIN_PERMISO)
+        val r = cliente.get(Rutas.ESTABLECIMIENTO_QR) { bearerAuth(tokenDj); parameter("tamano", 512) }
+        assertEquals(HttpStatusCode.OK, r.status)
+        assertEquals("https://virtualviking.github.io/vice-city-app/?e=${codigoQr()}", leerQr(ImageIO.read(ByteArrayInputStream(r.readRawBytes()))))
+    }
+
+    @Test
+    fun `se sigue leyendo con el icono de la app tapando el centro, como en la vista publica`() = conApp {
+        val r = cliente.get(Rutas.ESTABLECIMIENTO_QR) { bearerAuth(loginAdmin()); parameter("tamano", 512) }
+        val imagen = ImageIO.read(ByteArrayInputStream(r.readRawBytes()))
+        // La vista pública pone el ícono (con su borde blanco) sobre el 24 % central del ancho
+        val lado = imagen.width * 24 / 100
+        val inicio = (imagen.width - lado) / 2
+        val tapada = BufferedImage(imagen.width, imagen.height, BufferedImage.TYPE_INT_RGB)
+        tapada.graphics.apply {
+            drawImage(imagen, 0, 0, null)
+            color = Color(0x2A1B47)
+            fillRect(inicio, inicio, lado, lado)
+            dispose()
+        }
+        assertEquals("https://virtualviking.github.io/vice-city-app/?e=${codigoQr()}", leerQr(tapada))
     }
 
     @Test
