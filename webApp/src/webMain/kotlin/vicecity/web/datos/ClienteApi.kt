@@ -17,6 +17,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import vicecity.compartido.CodigosError
@@ -81,6 +82,16 @@ class ClienteApi(private val base: String = ViceCityConfig.apiBase.trimEnd('/'))
     /** Bytes de la miniatura del video, servida por el backend, o null si no se pudo descargar. */
     suspend fun miniatura(videoId: String): ByteArray? = try {
         http.get(base + Rutas.miniatura(videoId)).takeIf { it.status.isSuccess() }?.readRawBytes()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        null
+    }
+
+    /** Bytes del ícono de la app (icons/icon-192.png), que se publica junto a la web; null si no se pudo descargar. */
+    suspend fun iconoApp(): ByteArray? = try {
+        val carpeta = window.location.href.substringBefore('#').substringBefore('?').substringBeforeLast('/')
+        http.get("$carpeta/icons/icon-192.png").takeIf { it.status.isSuccess() }?.readRawBytes()
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {

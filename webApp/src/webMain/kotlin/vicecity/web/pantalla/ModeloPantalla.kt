@@ -3,6 +3,8 @@ package vicecity.web.pantalla
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -20,14 +22,16 @@ import vicecity.web.datos.ErrorDeApi
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import org.jetbrains.skia.Image as ImagenSkia
 
 /**
  * Vista pública (RF-10, RF-11, RF-25): reproduce lo que el servidor dice que suena y le avisa cuando termina o falla.
  * El servidor decide siempre qué sigue; esta pantalla solo obedece. Consulta el estado cada 2 segundos (HU-07),
  * así las acciones del DJ (pausar, saltar, eliminar) se ven aquí casi enseguida.
  * Los navegadores no dejan reproducir con sonido sin un toque: por eso hay que tocar "Iniciar" una vez.
+ * También muestra el QR del establecimiento con el ícono de la app (RF-13, HU-17).
  */
-class ModeloPantalla(private val api: ClientePersonal, private val alcance: CoroutineScope) {
+class ModeloPantalla(private val api: ClientePersonal, private val recursos: ClienteApi, private val alcance: CoroutineScope) {
     var estado by mutableStateOf<EstadoReproduccion?>(null)
         private set
     var iniciada by mutableStateOf(false)
@@ -38,6 +42,11 @@ class ModeloPantalla(private val api: ClientePersonal, private val alcance: Coro
         private set
     var sinCuenta by mutableStateOf(Almacen.cuenta == null)
         private set
+    /** QR del establecimiento y el ícono que va en su centro. Se cargan una vez: el código del QR no cambia. */
+    var qr by mutableStateOf<ImageBitmap?>(null)
+        private set
+    var icono by mutableStateOf<ImageBitmap?>(null)
+        private set
 
     /** "videoId|inicioEn" de lo que tiene cargado el reproductor de YouTube. */
     private var cargado: String? = null
@@ -47,8 +56,12 @@ class ModeloPantalla(private val api: ClientePersonal, private val alcance: Coro
     fun iniciarSondeo() {
         if (sondeo?.isActive == true) return
         sondeo = alcance.launch {
+            var vuelta = 0
             while (!sinCuenta) {
                 consultar()
+                // El QR se pide al empezar y, si no se pudo, se reintenta cada 30 segundos
+                if ((qr == null || icono == null) && vuelta % VUELTAS_REINTENTO_QR == 0) cargarQr()
+                vuelta++
                 delay(INTERVALO_MS)
             }
         }
@@ -94,6 +107,20 @@ class ModeloPantalla(private val api: ClientePersonal, private val alcance: Coro
             alFallar(e)
         }
     }
+
+    private suspend fun cargarQr() {
+        if (qr == null) {
+            try {
+                qr = imagen(api.qr(TAMANO_QR))
+            } catch (e: ErrorDeApi) {
+                // Sin conexión o servidor dormido: se reintenta en la siguiente ronda
+            }
+        }
+        if (icono == null) icono = recursos.iconoApp()?.let(::imagen)
+    }
+
+    private fun imagen(bytes: ByteArray): ImageBitmap? =
+        runCatching { ImagenSkia.makeFromEncoded(bytes).toComposeImageBitmap() }.getOrNull()
 
     /** Lleva el reproductor de YouTube a lo que dice el servidor: qué video y si suena o está en pausa. */
     private fun sincronizar() {
@@ -170,6 +197,10 @@ class ModeloPantalla(private val api: ClientePersonal, private val alcance: Coro
 
     private companion object {
         const val INTERVALO_MS = 2_000L
+        /** 15 rondas de 2 segundos: 30 segundos entre intentos de cargar el QR. */
+        const val VUELTAS_REINTENTO_QR = 15
+        /** Píxeles del PNG: se ve nítido incluso en pantallas de alta densidad. */
+        const val TAMANO_QR = 600
         const val MARGEN_SEG = 5
         const val REPRODUCIENDO_YT = 1
         const val PAUSADO_YT = 2
