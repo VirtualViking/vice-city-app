@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -46,6 +47,7 @@ fun Indicador(titulo: String, valor: String, detalle: String, modifier: Modifier
 /**
  * Solicitudes por hora en el orden de la noche (de mediodía a mediodía). Siempre muestra de 6 p. m. a 3 a. m.,
  * y se amplía si hay solicitudes antes o después. La barra más alta va resaltada.
+ * Debajo de cada barra va la hora en formato de 12 horas y, más abajo, una franja agrupa las horas p. m. y a. m.
  */
 @Composable
 fun BarrasFranjas(franjas: List<FranjaHoraria>, ancho: Boolean) {
@@ -59,30 +61,63 @@ fun BarrasFranjas(franjas: List<FranjaHoraria>, ancho: Boolean) {
     val visibles = enOrden.subList(minOf(6, conDatos.first()), maxOf(15, conDatos.last()) + 1)
     val maximo = visibles.maxOf { it.solicitudes }.coerceAtLeast(1)
     val altoMaximo = 150.dp
-    Row(Modifier.fillMaxWidth().height(altoMaximo + 64.dp), horizontalArrangement = Arrangement.spacedBy(if (ancho) 8.dp else 3.dp)) {
-        visibles.forEach { f ->
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Bottom, horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(if (f.solicitudes > 0) "${f.solicitudes}" else "", color = Colores.Texto, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Box(
-                    Modifier.padding(top = 4.dp).fillMaxWidth()
-                        .height((altoMaximo * (f.solicitudes.toFloat() / maximo)).coerceAtLeast(2.dp))
-                        .background(if (f.solicitudes == maximo) Colores.Cian else Colores.Apagado.copy(alpha = 0.55f), RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)),
-                )
-                Text(
-                    "${f.hora}", color = Colores.TextoSecundario, fontSize = if (ancho) 12.sp else 10.sp,
-                    textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.padding(top = 6.dp).heightIn(min = 18.dp),
-                )
+    val separacion = if (ancho) 8.dp else 3.dp
+
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // Ancho de cada barra, para que la franja de abajo quede alineada con sus horas
+        val anchoBarra = (maxWidth - separacion * (visibles.size - 1)) / visibles.size
+        Column {
+            Row(Modifier.fillMaxWidth().height(altoMaximo + 64.dp), horizontalArrangement = Arrangement.spacedBy(separacion)) {
+                visibles.forEach { f ->
+                    Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Bottom, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (f.solicitudes > 0) "${f.solicitudes}" else "", color = Colores.Texto, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Box(
+                            Modifier.padding(top = 4.dp).fillMaxWidth()
+                                .height((altoMaximo * (f.solicitudes.toFloat() / maximo)).coerceAtLeast(2.dp))
+                                .background(if (f.solicitudes == maximo) Colores.Cian else Colores.Apagado.copy(alpha = 0.55f), RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)),
+                        )
+                        Text(
+                            "${hora12(f.hora)}", color = Colores.TextoSecundario, fontSize = if (ancho) 12.sp else 10.sp,
+                            textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.padding(top = 6.dp).heightIn(min = 18.dp),
+                        )
+                    }
+                }
+            }
+            // Franja p. m. / a. m.: de mediodía a medianoche es p. m.; de medianoche a mediodía, a. m.
+            val horasPm = visibles.count { it.hora >= 12 }
+            val horasAm = visibles.size - horasPm
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(separacion)) {
+                if (horasPm > 0) {
+                    GrupoHoras("p. m. · tarde y noche", "p. m.", Modifier.width(anchoBarra * horasPm + separacion * (horasPm - 1)))
+                }
+                if (horasAm > 0) {
+                    GrupoHoras("a. m. · madrugada y mañana", "a. m.", Modifier.width(anchoBarra * horasAm + separacion * (horasAm - 1)))
+                }
             }
         }
     }
-    Text("Hora del día, de 0 a 23.", color = Colores.Apagado, fontSize = 12.sp)
 }
 
-/** "8 p. m." */
-fun horaCorta(hora: Int): String {
-    val h12 = if (hora % 12 == 0) 12 else hora % 12
-    return "$h12 ${if (hora < 12) "a. m." else "p. m."}"
+/** Línea bajo un grupo de horas con su nombre centrado. Si el grupo es angosto, solo "a. m." o "p. m.". */
+@Composable
+private fun GrupoHoras(nombre: String, nombreCorto: String, modifier: Modifier) {
+    BoxWithConstraints(modifier) {
+        val texto = if (maxWidth >= 190.dp) nombre else nombreCorto
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.fillMaxWidth().height(2.dp).background(Colores.Borde, RoundedCornerShape(50)))
+            Text(
+                texto, color = Colores.Apagado, fontSize = 12.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+    }
 }
+
+/** Hora en formato de 12 horas, sin a. m. ni p. m.: 0 y 12 son las 12. */
+fun hora12(hora: Int): Int = if (hora % 12 == 0) 12 else hora % 12
+
+/** "8 p. m." */
+fun horaCorta(hora: Int): String = "${hora12(hora)} ${if (hora < 12) "a. m." else "p. m."}"
 
 /** Fila de un ranking: nombre, valor a la derecha y barra proporcional. */
 @Composable

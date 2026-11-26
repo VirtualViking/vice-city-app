@@ -185,10 +185,10 @@ fun SeccionAnalitica(panel: ModeloPanel, miniaturas: ClienteApi, ancho: Boolean)
         izquierda = { m ->
             Tarjeta("Solicitudes por franja horaria", m) {
                 val pico = t.franjas.maxByOrNull { it.solicitudes }?.takeIf { it.solicitudes > 0 }
-                Text(
-                    pico?.let { "Pico a las ${horaCorta(it.hora)} con ${it.solicitudes} solicitudes. Hora de Colombia." } ?: "Hora de Colombia.",
-                    color = Colores.TextoSecundario, fontSize = 13.sp,
-                )
+                val detallePico = pico?.let {
+                    " Pico a las ${horaCorta(it.hora)} con ${it.solicitudes} ${if (it.solicitudes == 1) "solicitud" else "solicitudes"}."
+                }.orEmpty()
+                Text("Canciones pedidas en cada hora.$detallePico", color = Colores.TextoSecundario, fontSize = 13.sp)
                 BarrasFranjas(t.franjas, ancho)
             }
         },
