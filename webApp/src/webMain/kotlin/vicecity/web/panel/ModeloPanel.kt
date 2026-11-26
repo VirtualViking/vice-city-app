@@ -22,7 +22,7 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-enum class SeccionPanel { SESION, LISTA_DEFECTO, OPERACION, CONFIGURACION, ANALITICA }
+enum class SeccionPanel { SESION, LISTA_DEFECTO, OPERACION, CONFIGURACION, PERSONAL, ANALITICA }
 
 /** Mensaje corto que se muestra unos segundos. */
 data class AvisoPanel(val texto: String, val esError: Boolean = false)
@@ -82,6 +82,14 @@ class ModeloPanel(val api: ClientePersonal, private val alcance: CoroutineScope)
         cuenta = null
         reproduccion = null
         bloqueos = null
+    }
+
+    /** Actualiza el nombre del menú cuando el administrador cambia el suyo en Personal. */
+    fun renombrarCuenta(nombre: String) {
+        val actual = cuenta ?: return
+        val nueva = actual.copy(nombre = nombre)
+        Almacen.cuenta = nueva
+        cuenta = nueva
     }
 
     fun iniciar() {
@@ -178,7 +186,8 @@ class ModeloPanel(val api: ClientePersonal, private val alcance: CoroutineScope)
         when (e.codigo) {
             CodigosError.NO_AUTENTICADO -> {
                 salir()
-                errorEntrada = "Tu sesión en el panel venció. Vuelve a entrar."
+                // Venció el token, o el administrador desactivó la cuenta
+                errorEntrada = "Tu sesión en el panel terminó. Vuelve a entrar."
             }
             ClienteApi.SIN_CONEXION -> sinConexion = true
             else -> if (!silencioso) aviso = AvisoPanel(e.message, esError = true)

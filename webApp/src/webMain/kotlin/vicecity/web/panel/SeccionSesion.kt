@@ -75,9 +75,14 @@ fun SeccionSesion(modelo: ModeloPanel, miniaturas: ClienteApi, ancho: Boolean) {
 
     if (sesion == null) {
         Tarjeta {
+            // El DJ no ve la sección Operación
+            val horario = if (modelo.esAdmin) {
+                "Con la programación automática (sección Operación) se abre y se cierra sola según el horario."
+            } else {
+                "Si el administrador programó un horario, se abre y se cierra sola."
+            }
             Text(
-                "Abre la sesión para que los clientes pidan y voten canciones. Con la programación automática " +
-                        "(sección Operación) se abre y se cierra sola según el horario.",
+                "Abre la sesión para que los clientes pidan y voten canciones. $horario",
                 color = Colores.TextoSecundario, fontSize = 14.sp, lineHeight = 20.sp,
             )
         }
