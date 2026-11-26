@@ -19,11 +19,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import vicecity.compartido.CalidadDatos
 import vicecity.compartido.CambioConfiguracion
+import vicecity.compartido.CambioCuentaPersonal
 import vicecity.compartido.CambioMantenimiento
 import vicecity.compartido.CierreSesion
 import vicecity.compartido.CodigosError
 import vicecity.compartido.ConfiguracionEstablecimiento
 import vicecity.compartido.ConfiguracionOperacion
+import vicecity.compartido.CuentaPersonal
 import vicecity.compartido.EjecucionPipeline
 import vicecity.compartido.EliminacionSolicitud
 import vicecity.compartido.ErrorApi
@@ -32,8 +34,11 @@ import vicecity.compartido.EstadoReproduccion
 import vicecity.compartido.FinReproduccion
 import vicecity.compartido.ListaBloqueos
 import vicecity.compartido.ListaDefecto
+import vicecity.compartido.ListaPersonal
 import vicecity.compartido.LoginRespuesta
 import vicecity.compartido.LoginSolicitud
+import vicecity.compartido.NuevaClave
+import vicecity.compartido.NuevaCuentaPersonal
 import vicecity.compartido.NuevaListaDefecto
 import vicecity.compartido.PausaSolicitudes
 import vicecity.compartido.ReproduccionFallida
@@ -100,6 +105,15 @@ class ClientePersonal(private val base: String = ViceCityConfig.apiBase.trimEnd(
         pedir(Rutas.CONFIGURACION, HttpMethod.Put) { json(cambio) }
     /** Imagen PNG del código QR del establecimiento, de [tamano] píxeles de lado. */
     suspend fun qr(tamano: Int): ByteArray = pedir(Rutas.ESTABLECIMIENTO_QR) { parameter("tamano", tamano) }
+
+    // Cuentas del personal (solo administrador)
+    suspend fun personal(): ListaPersonal = pedir(Rutas.PERSONAL)
+    suspend fun crearCuenta(nueva: NuevaCuentaPersonal): CuentaPersonal =
+        pedir(Rutas.PERSONAL, HttpMethod.Post) { json(nueva) }
+    suspend fun cambiarCuenta(personalId: String, cambio: CambioCuentaPersonal): CuentaPersonal =
+        pedir(Rutas.cuentaPersonal(personalId), HttpMethod.Put) { json(cambio) }
+    suspend fun cambiarClave(personalId: String, clave: String): CuentaPersonal =
+        pedir(Rutas.clavePersonal(personalId), HttpMethod.Put) { json(NuevaClave(clave)) }
 
     // Analítica (solo administrador). Fechas yyyy-MM-dd de Colombia; [sesion] null: todas las del periodo.
     suspend fun tablero(desde: String, hasta: String, sesion: String?): TableroAnalitico = pedir(Rutas.ANALITICA) {
