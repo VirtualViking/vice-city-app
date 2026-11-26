@@ -45,6 +45,8 @@ object CodigosError {
     /** La limpieza solo se puede hacer con el mantenimiento activo. */
     const val MANTENIMIENTO_INACTIVO = "MANTENIMIENTO_INACTIVO"
 
+    const val EMAIL_EN_USO = "EMAIL_EN_USO"
+
     const val YOUTUBE_NO_DISPONIBLE = "YOUTUBE_NO_DISPONIBLE"
     const val BASE_DATOS_NO_DISPONIBLE = "BASE_DATOS_NO_DISPONIBLE"
     const val ERROR_INTERNO = "ERROR_INTERNO"
