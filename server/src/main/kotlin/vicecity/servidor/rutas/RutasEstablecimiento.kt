@@ -19,12 +19,16 @@ import vicecity.servidor.servicios.QrService
 private const val TAMANO_POR_DEFECTO = 1024
 private val TAMANOS_PERMITIDOS = 256..2048
 
-/** Datos del establecimiento para el personal. El establecimiento siempre se toma del token. */
+/**
+ * Código QR del establecimiento para el personal. El establecimiento siempre se toma del token.
+ * El administrador lo descarga para imprimir (RF-15) y la vista pública lo muestra en pantalla (RF-13, HU-17):
+ * por eso también lo puede pedir el DJ, que puede tener abierta la vista pública. El QR no es secreto: va impreso en las mesas.
+ */
 fun Route.rutasEstablecimiento(qr: () -> QrService) {
     authenticate(AUTH_PERSONAL) {
-        // GET /api/v1/admin/establecimiento/qr?tamano=1024 → image/png para descargar e imprimir
+        // GET /api/v1/admin/establecimiento/qr?tamano=1024 → image/png
         get(Rutas.ESTABLECIMIENTO_QR) {
-            val usuario = call.usuario().also { it.exigirRol(Rol.ADMIN) }
+            val usuario = call.usuario().also { it.exigirRol(Rol.ADMIN, Rol.DJ) }
             val tamano = call.request.queryParameters["tamano"]?.let { valor ->
                 valor.toIntOrNull()?.takeIf { it in TAMANOS_PERMITIDOS }
                     ?: throw datosInvalidos("tamano", "El tamaño debe estar entre ${TAMANOS_PERMITIDOS.first} y ${TAMANOS_PERMITIDOS.last} píxeles")
