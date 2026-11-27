@@ -63,6 +63,13 @@ fun videoNoValido(videoId: String, motivo: String) =
         mapOf("videoId" to videoId, "motivo" to motivo),
     )
 
+/** YouTube no deja reproducir el video dentro de la app (bloqueado para incrustar, privado o eliminado). */
+fun videoNoReproducible(videoId: String) =
+    ApiExcepcion(
+        HttpStatusCode.UnprocessableEntity, CodigosError.VIDEO_NO_VALIDO, "Esta canción no se puede reproducir en la app",
+        mapOf("videoId" to videoId, "motivo" to "NO_REPRODUCIBLE"),
+    )
+
 fun limiteSolicitudes(limite: Int, ventanaMin: Int, reintentarEn: Instant) =
     ApiExcepcion(
         HttpStatusCode.TooManyRequests, CodigosError.LIMITE_SOLICITUDES,

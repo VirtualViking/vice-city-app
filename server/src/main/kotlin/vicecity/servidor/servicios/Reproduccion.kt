@@ -17,6 +17,7 @@ import vicecity.servidor.datos.ListaDefectoItems
 import vicecity.servidor.datos.RepositorioBloqueos
 import vicecity.servidor.datos.RepositorioCola
 import vicecity.servidor.datos.RepositorioListaDefecto
+import vicecity.servidor.datos.RepositorioNoReproducibles
 import vicecity.servidor.datos.Sesiones
 import vicecity.servidor.datos.Solicitudes
 import java.time.Duration
@@ -114,9 +115,11 @@ object Reproduccion {
             return
         }
 
-        // Cola vacía: la lista por defecto, sin las canciones bloqueadas
+        // Cola vacía: la lista por defecto, sin las canciones bloqueadas ni las que YouTube no deja reproducir
         val bloqueadas = RepositorioBloqueos.bloqueados(establecimientoId, ahora)
-        val lista = RepositorioListaDefecto.canciones(establecimientoId).filter { it[Canciones.videoId] !in bloqueadas }
+        val completa = RepositorioListaDefecto.canciones(establecimientoId)
+        val noReproducibles = RepositorioNoReproducibles.de(completa.map { it[Canciones.videoId] })
+        val lista = completa.filter { it[Canciones.videoId] !in bloqueadas && it[Canciones.videoId] !in noReproducibles }
         if (lista.isEmpty()) {
             // Nada que poner: queda en silencio hasta que llegue una solicitud
             Sesiones.update({ Sesiones.id eq sesionId }) {

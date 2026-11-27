@@ -153,6 +153,14 @@ object BloqueosVideo : Table("bloqueo_video") {
     override val primaryKey = PrimaryKey(establecimientoId, videoId)
 }
 
+/** Videos que YouTube no deja reproducir en la app (migración V6). */
+object VideosNoReproducibles : Table("video_no_reproducible") {
+    val videoId = varchar("video_id", 11)
+    val codigoError = short("codigo_error")
+    val detectadoEn = timestamp("detectado_en")
+    override val primaryKey = PrimaryKey(videoId)
+}
+
 object Eventos : Table("evento") {
     val id = long("id")
     val idIdempotencia = javaUUID("id_idempotencia")

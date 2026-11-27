@@ -27,6 +27,7 @@ import vicecity.servidor.datos.RepositorioBloqueos
 import vicecity.servidor.datos.RepositorioCola
 import vicecity.servidor.datos.RepositorioDispositivos
 import vicecity.servidor.datos.RepositorioEstablecimientos
+import vicecity.servidor.datos.RepositorioNoReproducibles
 import vicecity.servidor.datos.Sesiones
 import vicecity.servidor.datos.Solicitudes
 import vicecity.servidor.limiteSolicitudes
@@ -37,6 +38,7 @@ import vicecity.servidor.servicios.Reproduccion.siEstaLibre
 import vicecity.servidor.solicitudNoActiva
 import vicecity.servidor.solicitudesPausadas
 import vicecity.servidor.videoBloqueado
+import vicecity.servidor.videoNoReproducible
 import vicecity.servidor.videoNoValido
 import vicecity.servidor.yaVotado
 import java.time.Duration
@@ -161,6 +163,8 @@ class ColaService(private val bd: BaseDatos, private val maxVotos: Int) {
         if (cancion[Canciones.duracionSeg] > reglas.duracionMaxSeg) throw videoNoValido(videoId, "DURACION_EXCEDIDA")
         // Bloqueada por el DJ por contenido inapropiado
         RepositorioBloqueos.vigente(sesion[Sesiones.establecimientoId], videoId, ahora)?.let { throw videoBloqueado(videoId, it) }
+        // YouTube no lo deja reproducir en la app (falló antes con un error que no cambia)
+        if (RepositorioNoReproducibles.contiene(videoId)) throw videoNoReproducible(videoId)
 
         // Ya está en la cola: la solicitud se convierte en un voto
         RepositorioCola.activaDeVideo(sesionId, videoId)?.let { activa ->

@@ -21,6 +21,7 @@ import vicecity.servidor.datos.RepositorioBloqueos
 import vicecity.servidor.datos.RepositorioCola
 import vicecity.servidor.datos.RepositorioEstablecimientos
 import vicecity.servidor.datos.RepositorioListaDefecto
+import vicecity.servidor.datos.RepositorioNoReproducibles
 import vicecity.servidor.datos.Sesiones
 import vicecity.servidor.datos.Solicitudes
 import vicecity.servidor.datosInvalidos
@@ -79,10 +80,16 @@ class ReproductorService(private val bd: BaseDatos) {
         }
     }
 
-    /** RF-25: el video no se pudo reproducir (por ejemplo, su dueño no permite verlo incrustado). Se salta y queda FALLIDA. */
+    /**
+     * RF-25: el video no se pudo reproducir (por ejemplo, su dueño no permite verlo incrustado). Se salta y queda FALLIDA.
+     * Si el error no cambia al reintentar (bloqueado, privado o eliminado), el video se recuerda para no volver a ofrecerlo.
+     */
     suspend fun fallida(usuario: UsuarioPersonal, falla: ReproduccionFallida): EstadoReproduccion = accion(usuario) { sesion, ahora ->
         if (esLaQueSuena(sesion, falla.videoId, falla.inicioEn)) {
             val sesionId = sesion[Sesiones.id]
+            if (falla.codigo in RepositorioNoReproducibles.CODIGOS_PERMANENTES) {
+                RepositorioNoReproducibles.registrar(falla.videoId, falla.codigo, ahora)
+            }
             Reproduccion.terminarActual(sesionId, ahora, FinCancion.FALLIDA, codigoError = falla.codigo)
             Reproduccion.siguiente(sesionId, ahora)
         }
