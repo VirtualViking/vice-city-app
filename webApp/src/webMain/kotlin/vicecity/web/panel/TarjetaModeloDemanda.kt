@@ -49,7 +49,7 @@ fun TarjetaModeloDemanda(modelo: ModeloDemanda?, ancho: Boolean) {
     Tarjeta("Demanda de la noche") {
         if (modelo == null) {
             Text(
-                "Se necesitan al menos 4 horas seguidas con solicitudes para estimar la demanda.",
+                "Se necesitan solicitudes en un rango de al menos 4 horas de la noche para estimar la demanda.",
                 color = Colores.TextoSecundario, fontSize = 14.sp, lineHeight = 20.sp,
             )
             return@Tarjeta
