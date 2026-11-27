@@ -80,19 +80,27 @@ fun PanelPersonal() {
         val quien = "${cuenta.nombre} · ${if (cuenta.rol == Rol.ADMIN) "Administrador" else "DJ"}"
 
         val contenido: @Composable () -> Unit = {
-            Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(if (ancho) 32.dp else 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Column(Modifier.widthIn(max = 1100.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    if (modelo.sinConexion) TextoError("Sin conexión con el servidor. Seguimos intentando…")
-                    when (modelo.seccion) {
-                        SeccionPanel.SESION -> SeccionSesion(modelo, miniaturas, ancho)
-                        SeccionPanel.LISTA_DEFECTO -> SeccionListaDefecto(modelo, miniaturas, ancho)
-                        SeccionPanel.OPERACION -> SeccionOperacion(modelo)
-                        SeccionPanel.CONFIGURACION -> SeccionConfiguracion(modelo, ancho)
-                        SeccionPanel.PERSONAL -> SeccionPersonal(modelo, ancho)
-                        SeccionPanel.ANALITICA -> SeccionAnalitica(modelo, miniaturas, ancho)
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val margen = if (ancho) 32.dp else 16.dp
+                // El contenido mide al menos lo visible: así la sección Sesión puede llenar el espacio libre con el logo
+                val altoVisible = (maxHeight - margen * 2).coerceAtLeast(0.dp)
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(margen),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Column(
+                        Modifier.widthIn(max = 1100.dp).fillMaxWidth().heightIn(min = altoVisible),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                    ) {
+                        if (modelo.sinConexion) TextoError("Sin conexión con el servidor. Seguimos intentando…")
+                        when (modelo.seccion) {
+                            SeccionPanel.SESION -> SeccionSesion(modelo, miniaturas, ancho)
+                            SeccionPanel.LISTA_DEFECTO -> SeccionListaDefecto(modelo, miniaturas, ancho)
+                            SeccionPanel.OPERACION -> SeccionOperacion(modelo)
+                            SeccionPanel.CONFIGURACION -> SeccionConfiguracion(modelo, ancho)
+                            SeccionPanel.PERSONAL -> SeccionPersonal(modelo, ancho)
+                            SeccionPanel.ANALITICA -> SeccionAnalitica(modelo, miniaturas, ancho)
+                        }
                     }
                 }
             }
