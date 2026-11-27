@@ -9,10 +9,14 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import vicecity.compartido.CalidadDatos
+import vicecity.compartido.CambioExclusion
 import vicecity.compartido.CancionPopular
+import vicecity.compartido.CodigosError
 import vicecity.compartido.ConcentracionVotos
 import vicecity.compartido.CumplimientoListaDefecto
 import vicecity.compartido.EjecucionPipeline
@@ -31,6 +35,7 @@ import vicecity.compartido.TiemposEspera
 import vicecity.compartido.TramoEspera
 import vicecity.servidor.BaseDatos
 import vicecity.servidor.analitica.PipelineDatos
+import vicecity.servidor.conflicto
 import vicecity.servidor.datos.AnCancionGeneros
 import vicecity.servidor.datos.AnCanciones
 import vicecity.servidor.datos.AnEjecuciones
@@ -39,6 +44,7 @@ import vicecity.servidor.datos.AnParticipaciones
 import vicecity.servidor.datos.AnReproducciones
 import vicecity.servidor.datos.AnSales
 import vicecity.servidor.datos.AnSesiones
+import vicecity.servidor.datos.AnSesionesExcluidas
 import vicecity.servidor.datos.AnSolicitudes
 import vicecity.servidor.datos.AnVotos
 import vicecity.servidor.datosInvalidos
@@ -57,6 +63,7 @@ import kotlin.math.roundToInt
  * Indicadores del tablero analítico (RF-21 a RF-23, RF-29, RF-30 y Entregable 6).
  * Todo se calcula sobre el esquema analitica, que solo tiene datos limpios y anónimos. Sin datos, los indicadores dan cero.
  * Si los datos tienen más de un minuto al abrir el tablero, primero se ejecuta el pipeline.
+ * Las sesiones que el administrador excluye (por ejemplo, las de prueba) no cuentan en el periodo ni salen en el selector.
  */
 class AnaliticaService(
     private val bd: BaseDatos,
@@ -81,19 +88,38 @@ class AnaliticaService(
                 .orderBy(AnSesiones.inicio, SortOrder.DESC)
                 .toList()
             val ids = filas.map { it[AnSesiones.sesionId] }
-            val conteo = AnSolicitudes.sesionId.count()
-            val solicitudes = if (ids.isEmpty()) emptyMap() else
-                AnSolicitudes.select(AnSolicitudes.sesionId, conteo).where { AnSolicitudes.sesionId inList ids }
-                    .groupBy(AnSolicitudes.sesionId).associate { it[AnSolicitudes.sesionId] to it[conteo].toInt() }
-            SesionesAnaliticas(filas.map {
-                SesionAnalitica(
-                    id = it[AnSesiones.sesionId].toString(),
-                    inicio = it[AnSesiones.inicio].toString(),
-                    fin = it[AnSesiones.fin]?.toString(),
-                    automatica = it[AnSesiones.automatica],
-                    solicitudes = solicitudes[it[AnSesiones.sesionId]] ?: 0,
-                )
-            })
+            val solicitudes = solicitudesPorSesion(ids)
+            val excluidas = excluidas(ids)
+            val (fuera, dentro) = filas.partition { it[AnSesiones.sesionId] in excluidas }
+            SesionesAnaliticas(
+                sesiones = dentro.map { sesionAnalitica(it, solicitudes, excluida = false) },
+                excluidas = fuera.map { sesionAnalitica(it, solicitudes, excluida = true) },
+            )
+        }
+    }
+
+    /**
+     * Saca una sesión cerrada del tablero o la vuelve a incluir. No borra datos: los eventos son inmutables (RNF-15)
+     * y la sesión sigue en la capa analítica, así que se puede deshacer en cualquier momento.
+     */
+    suspend fun excluir(usuario: UsuarioPersonal, sesion: String, cambio: CambioExclusion): SesionAnalitica {
+        val sesionId = runCatching { UUID.fromString(sesion) }.getOrElse { throw noEncontrado("la sesión") }
+        return bd.tx {
+            val fila = AnSesiones.selectAll()
+                .where { (AnSesiones.sesionId eq sesionId) and (AnSesiones.establecimientoId eq usuario.establecimientoId) }
+                .singleOrNull() ?: throw noEncontrado("la sesión")
+            if (fila[AnSesiones.fin] == null) throw conflicto(CodigosError.SESION_EN_CURSO, "Solo se pueden excluir sesiones cerradas")
+            val yaExcluida = sesionId in excluidas(listOf(sesionId))
+            if (cambio.excluida && !yaExcluida) {
+                AnSesionesExcluidas.insert {
+                    it[AnSesionesExcluidas.sesionId] = sesionId
+                    it[excluidaEn] = reloj()
+                    it[excluidaPor] = usuario.personalId
+                }
+            } else if (!cambio.excluida && yaExcluida) {
+                AnSesionesExcluidas.deleteWhere { AnSesionesExcluidas.sesionId eq sesionId }
+            }
+            sesionAnalitica(fila, solicitudesPorSesion(listOf(sesionId)), cambio.excluida)
         }
     }
 
@@ -121,12 +147,17 @@ class AnaliticaService(
     // ---------- Indicadores
 
     private fun JdbcTransaction.calcular(establecimientoId: UUID, filtro: Filtro): TableroAnalitico {
-        val sesiones = AnSesiones.selectAll().where {
+        val delFiltro = AnSesiones.selectAll().where {
             val delEstablecimiento = AnSesiones.establecimientoId eq establecimientoId
             if (filtro.sesionId != null) delEstablecimiento and (AnSesiones.sesionId eq filtro.sesionId)
             else delEstablecimiento and (AnSesiones.fechaLocal.between(filtro.desde, filtro.hasta))
         }.toList()
-        if (filtro.sesionId != null && sesiones.isEmpty()) throw noEncontrado("la sesión")
+        if (filtro.sesionId != null && delFiltro.isEmpty()) throw noEncontrado("la sesión")
+        // En el periodo no cuentan las sesiones excluidas; una sesión pedida por su id sí se muestra
+        val sesiones = if (filtro.sesionId != null) delFiltro else {
+            val excluidas = excluidas(delFiltro.map { it[AnSesiones.sesionId] })
+            delFiltro.filterNot { it[AnSesiones.sesionId] in excluidas }
+        }
         val ids = sesiones.map { it[AnSesiones.sesionId] }
         val inicioSesion = sesiones.associate { it[AnSesiones.sesionId] to it[AnSesiones.inicio] }
 
@@ -307,6 +338,28 @@ class AnaliticaService(
     }
 
     // ---------- Apoyo
+
+    private fun sesionAnalitica(fila: ResultRow, solicitudes: Map<UUID, Int>, excluida: Boolean) = SesionAnalitica(
+        id = fila[AnSesiones.sesionId].toString(),
+        inicio = fila[AnSesiones.inicio].toString(),
+        fin = fila[AnSesiones.fin]?.toString(),
+        automatica = fila[AnSesiones.automatica],
+        solicitudes = solicitudes[fila[AnSesiones.sesionId]] ?: 0,
+        excluida = excluida,
+    )
+
+    private fun solicitudesPorSesion(ids: List<UUID>): Map<UUID, Int> {
+        if (ids.isEmpty()) return emptyMap()
+        val conteo = AnSolicitudes.sesionId.count()
+        return AnSolicitudes.select(AnSolicitudes.sesionId, conteo).where { AnSolicitudes.sesionId inList ids }
+            .groupBy(AnSolicitudes.sesionId).associate { it[AnSolicitudes.sesionId] to it[conteo].toInt() }
+    }
+
+    /** Cuáles de [ids] están excluidas del tablero. */
+    private fun excluidas(ids: List<UUID>): Set<UUID> =
+        if (ids.isEmpty()) emptySet()
+        else AnSesionesExcluidas.select(AnSesionesExcluidas.sesionId).where { AnSesionesExcluidas.sesionId inList ids }
+            .map { it[AnSesionesExcluidas.sesionId] }.toSet()
 
     /** Si los datos tienen más de un minuto, ejecuta el pipeline antes de calcular. */
     private suspend fun refrescarSiHaceFalta() {

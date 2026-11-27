@@ -54,6 +54,8 @@ object Rutas {
     const val ANALITICA = "$API_PREFIJO/admin/analitica"
     /** Sesiones del periodo para el selector: ?desde=&hasta= */
     const val ANALITICA_SESIONES = "$ANALITICA/sesiones"
+    /** PUT: excluye una sesión cerrada del tablero o la vuelve a incluir. */
+    fun exclusionSesionAnalitica(sesionId: String) = "$ANALITICA_SESIONES/$sesionId/exclusion"
     /** POST: ejecuta el pipeline de datos ahora. */
     const val ANALITICA_PIPELINE = "$ANALITICA/pipeline"
     /** Calidad de los datos y evidencia de anonimización. */

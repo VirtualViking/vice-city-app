@@ -174,11 +174,23 @@ data class SesionAnalitica(
     val fin: String? = null,
     val automatica: Boolean,
     val solicitudes: Int,
+    /** true si el administrador la excluyó del tablero (por ejemplo, una sesión de prueba). */
+    val excluida: Boolean = false,
 )
 
-/** Respuesta de GET /api/v1/admin/analitica/sesiones?desde=&hasta=: la más reciente primero. */
+/**
+ * Respuesta de GET /api/v1/admin/analitica/sesiones?desde=&hasta=: la más reciente primero.
+ * [excluidas] son las del periodo que el administrador sacó del tablero: no cuentan en los indicadores.
+ */
 @Serializable
-data class SesionesAnaliticas(val sesiones: List<SesionAnalitica>)
+data class SesionesAnaliticas(
+    val sesiones: List<SesionAnalitica>,
+    val excluidas: List<SesionAnalitica> = emptyList(),
+)
+
+/** PUT /api/v1/admin/analitica/sesiones/{id}/exclusion: saca la sesión del tablero o la vuelve a incluir. Los datos no se borran. */
+@Serializable
+data class CambioExclusion(val excluida: Boolean)
 
 /** Lo que borró la retención (sección 6 del diseño). */
 @Serializable
