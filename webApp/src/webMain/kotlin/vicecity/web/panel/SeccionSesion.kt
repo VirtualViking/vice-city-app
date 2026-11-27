@@ -3,6 +3,7 @@ package vicecity.web.panel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -39,9 +40,10 @@ import vicecity.web.tema.Colores
 /**
  * Sesión de esta noche (Figura 14 del diseño): abrir y cerrar la sesión, pausar las solicitudes,
  * controlar la música (iniciar, pausar, reanudar, saltar) y eliminar o bloquear contenido inapropiado.
+ * Sin sesión abierta o con la cola vacía, el logo de la app ocupa el espacio libre; con canciones en la cola se oculta.
  */
 @Composable
-fun SeccionSesion(modelo: ModeloPanel, miniaturas: ClienteApi, ancho: Boolean) {
+fun ColumnScope.SeccionSesion(modelo: ModeloPanel, miniaturas: ClienteApi, ancho: Boolean) {
     val estado = modelo.reproduccion
 
     if (estado == null) {
@@ -87,6 +89,7 @@ fun SeccionSesion(modelo: ModeloPanel, miniaturas: ClienteApi, ancho: Boolean) {
             )
         }
         Bloqueos(modelo, miniaturas)
+        LogoEspera(miniaturas, Modifier.weight(1f).fillMaxWidth())
         return
     }
 
@@ -103,6 +106,7 @@ fun SeccionSesion(modelo: ModeloPanel, miniaturas: ClienteApi, ancho: Boolean) {
     SuenaAhora(estado, modelo, miniaturas, ancho, alEliminar = { modelo.hoja = it })
     Cola(estado.cola, estado.cancionesListaDefecto, miniaturas, ancho, alEliminar = { modelo.hoja = it }, ocupado = modelo.ocupado != null)
     Bloqueos(modelo, miniaturas)
+    if (estado.cola.isEmpty()) LogoEspera(miniaturas, Modifier.weight(1f).fillMaxWidth())
 }
 
 /** Abre la vista pública en otra pestaña: comparte la cuenta guardada en el navegador. */

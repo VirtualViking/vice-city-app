@@ -88,10 +88,13 @@ class ClienteApi(private val base: String = ViceCityConfig.apiBase.trimEnd('/'))
         null
     }
 
-    /** Bytes del ícono de la app (icons/icon-192.png), que se publica junto a la web; null si no se pudo descargar. */
-    suspend fun iconoApp(): ByteArray? = try {
+    /**
+     * Bytes del ícono de la app, que se publica junto a la web (icons/icon-192.png o icons/icon-512.png según [lado]);
+     * null si no se pudo descargar.
+     */
+    suspend fun iconoApp(lado: Int = 192): ByteArray? = try {
         val carpeta = window.location.href.substringBefore('#').substringBefore('?').substringBeforeLast('/')
-        http.get("$carpeta/icons/icon-192.png").takeIf { it.status.isSuccess() }?.readRawBytes()
+        http.get("$carpeta/icons/icon-$lado.png").takeIf { it.status.isSuccess() }?.readRawBytes()
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
