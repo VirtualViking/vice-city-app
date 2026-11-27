@@ -17,7 +17,10 @@ import vicecity.servidor.seguridad.exigirRol
 import vicecity.servidor.seguridad.usuario
 import vicecity.servidor.servicios.AnaliticaService
 
-/** Capa analítica: tablero, sesiones del periodo, ejecución del pipeline y calidad de datos. Solo el administrador (HU-23). */
+/**
+ * Capa analítica: tablero, sesiones del periodo, exclusión de sesiones, ejecución del pipeline y calidad de datos.
+ * Solo el administrador (HU-23).
+ */
 fun Route.rutasAnalitica(analitica: () -> AnaliticaService) {
     authenticate(AUTH_PERSONAL) {
         get(Rutas.ANALITICA) {
@@ -29,6 +32,11 @@ fun Route.rutasAnalitica(analitica: () -> AnaliticaService) {
             val usuario = call.administrador()
             val p = call.request.queryParameters
             call.respond(analitica().sesiones(usuario, p["desde"], p["hasta"]))
+        }
+        // PUT /api/v1/admin/analitica/sesiones/{id}/exclusion
+        put("${Rutas.ANALITICA_SESIONES}/{id}/exclusion") {
+            val usuario = call.administrador()
+            call.respond(analitica().excluir(usuario, call.parameters["id"].orEmpty(), call.receive<CambioExclusion>()))
         }
         post(Rutas.ANALITICA_PIPELINE) {
             call.administrador()
