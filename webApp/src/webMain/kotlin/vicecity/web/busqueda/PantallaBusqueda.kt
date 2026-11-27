@@ -144,7 +144,7 @@ private fun LazyGridScope.contenido(estado: EstadoBusqueda, api: ClienteApi, alE
             MensajeCentral(titulo = "No pudimos buscar", texto = estado.error)
         }
         resultados == null -> filaCompleta {
-            MensajeCentral(titulo = "¿Qué quieres escuchar?", texto = "Escribe al menos 2 letras para buscar.")
+            MensajeCentral(titulo = "¿Qué quieres escuchar?")
         }
         resultados.isEmpty() -> filaCompleta {
             MensajeCentral(

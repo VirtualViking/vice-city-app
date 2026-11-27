@@ -15,11 +15,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import vicecity.web.tema.Colores
 
-/** Mensaje centrado con ícono, título, explicación y una acción opcional (estados vacíos, de carga o de error). */
+/** Mensaje centrado con ícono, título, explicación opcional y una acción opcional (estados vacíos, de carga o de error). */
 @Composable
 fun MensajeCentral(
     titulo: String,
-    texto: String,
+    texto: String? = null,
     modifier: Modifier = Modifier,
     icono: @Composable () -> Unit = { IconoMusica(Colores.Apagado) },
     accion: String? = null,
@@ -32,7 +32,9 @@ fun MensajeCentral(
     ) {
         icono()
         Text(titulo, color = Colores.Texto, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
-        Text(texto, color = Colores.TextoSecundario, fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 420.dp))
+        if (texto != null) {
+            Text(texto, color = Colores.TextoSecundario, fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 420.dp))
+        }
         if (accion != null) {
             BotonNeon(accion, alPresionar = alAccionar, modifier = Modifier.padding(top = 14.dp))
         }
