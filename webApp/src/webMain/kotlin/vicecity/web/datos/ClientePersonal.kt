@@ -20,6 +20,7 @@ import kotlinx.serialization.json.Json
 import vicecity.compartido.CalidadDatos
 import vicecity.compartido.CambioConfiguracion
 import vicecity.compartido.CambioCuentaPersonal
+import vicecity.compartido.CambioExclusion
 import vicecity.compartido.CambioMantenimiento
 import vicecity.compartido.CierreSesion
 import vicecity.compartido.CodigosError
@@ -45,6 +46,7 @@ import vicecity.compartido.ReproduccionFallida
 import vicecity.compartido.RespuestaBusqueda
 import vicecity.compartido.ResultadoLimpieza
 import vicecity.compartido.Rutas
+import vicecity.compartido.SesionAnalitica
 import vicecity.compartido.SesionDto
 import vicecity.compartido.SesionesAnaliticas
 import vicecity.compartido.TableroAnalitico
@@ -125,6 +127,9 @@ class ClientePersonal(private val base: String = ViceCityConfig.apiBase.trimEnd(
         parameter("desde", desde)
         parameter("hasta", hasta)
     }
+    /** Saca una sesión cerrada del tablero ([excluida] = true) o la vuelve a incluir. No borra datos. */
+    suspend fun excluirSesion(sesionId: String, excluida: Boolean): SesionAnalitica =
+        pedir(Rutas.exclusionSesionAnalitica(sesionId), HttpMethod.Put) { json(CambioExclusion(excluida)) }
     suspend fun ejecutarPipeline(): EjecucionPipeline = pedir(Rutas.ANALITICA_PIPELINE, HttpMethod.Post)
     suspend fun calidad(): CalidadDatos = pedir(Rutas.ANALITICA_CALIDAD)
 
