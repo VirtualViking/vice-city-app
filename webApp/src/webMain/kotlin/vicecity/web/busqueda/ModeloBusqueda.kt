@@ -57,12 +57,10 @@ class ModeloBusqueda(
         }
     }
 
+    /** Con menos de 2 letras no hace nada: el servidor no busca textos tan cortos. */
     fun buscar(texto: String = estado.texto) {
         val consulta = texto.trim()
-        if (consulta.length < LARGO_MINIMO) {
-            estado = estado.copy(error = "Escribe al menos $LARGO_MINIMO letras para buscar.")
-            return
-        }
+        if (consulta.length < LARGO_MINIMO) return
         trabajoSugerencias?.cancel()
         trabajoBusqueda?.cancel()
         estado = estado.copy(texto = texto, sugerencias = emptyList(), cargando = true, error = null)
