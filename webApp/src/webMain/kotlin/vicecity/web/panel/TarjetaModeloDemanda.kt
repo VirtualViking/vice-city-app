@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import vicecity.compartido.MetodoPico
 import vicecity.compartido.ModeloDemanda
 import vicecity.web.tema.Colores
 import kotlin.math.abs
@@ -94,11 +93,7 @@ fun TarjetaModeloDemanda(modelo: ModeloDemanda?, ancho: Boolean) {
             Resultado(
                 "Hora pico estimada",
                 horaExacta(pico.x),
-                when {
-                    pico.metodo != MetodoPico.BORDE -> "El momento con más solicitudes: unas ${pico.solicitudes.roundToInt()} por hora."
-                    pico.x <= modelo.desde -> "Las solicitudes fueron bajando desde el comienzo de la noche."
-                    else -> "Las solicitudes siguieron subiendo hasta el final de la noche."
-                },
+                "El momento con más solicitudes: unas ${pico.solicitudes.roundToInt()} por hora.",
                 Modifier.weight(1f),
             )
             Resultado(
@@ -133,12 +128,17 @@ fun TarjetaModeloDemanda(modelo: ModeloDemanda?, ancho: Boolean) {
     }
 }
 
-/** Barras de las solicitudes reales, la curva ajustada (cada 5 minutos), el intervalo elegido sombreado y la hora pico. */
+/**
+ * Barras de las solicitudes reales, la curva ajustada (cada 5 minutos), el intervalo elegido sombreado y la hora pico.
+ * La curva va del centro de la primera barra al de la última: más allá no tiene datos a los lados y puede exagerar.
+ */
 @Composable
 private fun CurvaDemanda(modelo: ModeloDemanda, desde: Int, hasta: Int, alto: Int) {
     val muestras = remember(modelo) {
-        val pasos = ((modelo.hasta - modelo.desde) * 12).roundToInt()
-        (0..pasos).map { i -> modelo.desde + i / 12.0 }.map { x -> x to modelo.valor(x) }
+        val inicio = modelo.puntos.first().x
+        val fin = modelo.puntos.last().x
+        val pasos = ((fin - inicio) * 12).roundToInt()
+        (0..pasos).map { i -> inicio + i / 12.0 }.map { x -> x to modelo.valor(x) }
     }
     val maximo = remember(modelo) {
         max(1.0, maxOf(modelo.puntos.maxOf { it.solicitudes }, muestras.maxOf { it.second }, modelo.pico.solicitudes) * 1.15)
