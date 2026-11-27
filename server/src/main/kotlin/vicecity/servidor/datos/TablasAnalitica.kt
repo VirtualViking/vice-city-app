@@ -121,3 +121,11 @@ object AnSales : Table("analitica.sal_sesion") {
     val creadaEn = timestamp("creada_en")
     override val primaryKey = PrimaryKey(sesionId)
 }
+
+/** Sesiones que el administrador sacó del tablero (migración V5). Quitar la fila la vuelve a incluir. */
+object AnSesionesExcluidas : Table("analitica.sesion_excluida") {
+    val sesionId = javaUUID("sesion_id")
+    val excluidaEn = timestamp("excluida_en")
+    val excluidaPor = javaUUID("excluida_por")
+    override val primaryKey = PrimaryKey(sesionId)
+}
