@@ -32,6 +32,8 @@ data class TableroAnalitico(
     val ranking: RankingPopularidad,
     /** Solicitudes y votos por hora del día (0 a 23, hora de Colombia); siempre 24 elementos. */
     val franjas: List<FranjaHoraria>,
+    /** Modelo de demanda por hora con métodos numéricos (promedio por noche); null si hay menos de 4 horas con datos. */
+    val modeloDemanda: ModeloDemanda? = null,
     val esperas: TiemposEspera,
     val listaDefecto: CumplimientoListaDefecto,
     /** Canciones que sonaron, la más reciente primero (máximo 200). */

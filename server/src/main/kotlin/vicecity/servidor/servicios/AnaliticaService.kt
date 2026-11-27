@@ -22,6 +22,7 @@ import vicecity.compartido.CumplimientoListaDefecto
 import vicecity.compartido.EjecucionPipeline
 import vicecity.compartido.ElementoRanking
 import vicecity.compartido.FranjaHoraria
+import vicecity.compartido.ModeloDemanda
 import vicecity.compartido.OrigenReproduccion
 import vicecity.compartido.RankingPopularidad
 import vicecity.compartido.ReproduccionHistorial
@@ -219,6 +220,8 @@ class AnaliticaService(
         val solicitudesPorHora = solicitudes.groupingBy { it[AnSolicitudes.horaLocal].toInt() }.eachCount()
         val votosPorHora = votos.groupingBy { it[AnVotos.horaLocal].toInt() }.eachCount()
         val franjas = (0..23).map { FranjaHoraria(it, solicitudesPorHora[it] ?: 0, votosPorHora[it] ?: 0) }
+        // Modelo de demanda (mínimos cuadrados, Newton-Raphson o bisección): promedio por noche de las sesiones del filtro
+        val modeloDemanda = ModeloDemanda.ajustar(franjas.map { it.solicitudes }, noches = sesiones.size)
 
         // Tiempos de espera
         val noSonaron = solicitudes.filter { it[AnSolicitudes.estadoFinal] == "NO_REPRODUCIDA" }
@@ -299,6 +302,7 @@ class AnaliticaService(
             masPopular = masPopular,
             ranking = rankingPopularidad,
             franjas = franjas,
+            modeloDemanda = modeloDemanda,
             esperas = tiempos,
             listaDefecto = listaDefecto,
             historial = historial,
