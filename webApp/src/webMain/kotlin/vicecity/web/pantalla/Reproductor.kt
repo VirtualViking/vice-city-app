@@ -12,6 +12,10 @@ external object ViceCityReproductor {
     fun reproducir()
     fun pausar()
     fun detener()
-    /** Estado de YouTube: 1 reproduciendo, 2 pausado; -2 si aún no está listo. */
+    /** Estado de YouTube: -1 sin empezar, 0 terminado, 1 reproduciendo, 2 pausado, 3 cargando, 5 en espera; -2 si aún no está listo. */
     fun estado(): Int
+    /** Segundos del video cargado; 0 mientras YouTube no lo conoce (por ejemplo, si muestra un mensaje de error). */
+    fun duracion(): Double
+    /** Muestra u oculta el reproductor sin quitarlo de la página. */
+    fun mostrar(visible: Boolean)
 }

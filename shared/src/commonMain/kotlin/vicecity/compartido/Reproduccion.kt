@@ -27,13 +27,24 @@ data class FinReproduccion(
     val inicioEn: String,
 )
 
-/** Cuerpo de POST /api/v1/admin/reproductor/fallida (RF-25). [codigo] es el error del reproductor de YouTube (100, 101, 150...). */
+/**
+ * Cuerpo de POST /api/v1/admin/reproductor/fallida (RF-25). [codigo] es el error del reproductor de YouTube (100, 101, 150...)
+ * o [SIN_ARRANQUE], que pone la vista pública cuando el video no empieza y YouTube no avisó ningún error.
+ */
 @Serializable
 data class ReproduccionFallida(
     val videoId: String,
     val inicioEn: String,
     val codigo: Int,
-)
+) {
+    companion object {
+        /**
+         * No es un código de YouTube: el video debía sonar, a los 10 segundos seguía sin empezar y el reproductor
+         * no conocía su duración. Pasa con algunos videos bloqueados, que muestran el mensaje de YouTube sin avisar el error.
+         */
+        const val SIN_ARRANQUE = 1
+    }
+}
 
 @Serializable
 enum class MotivoEliminacion { NO_MUSICAL, INAPROPIADO, OTRO }

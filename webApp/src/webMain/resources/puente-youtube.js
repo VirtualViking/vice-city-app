@@ -51,6 +51,13 @@
         pausar: function () { if (listo) reproductor.pauseVideo(); },
         detener: function () { if (listo) reproductor.stopVideo(); },
         // -2 sin crear, -1 sin empezar, 0 terminado, 1 reproduciendo, 2 pausado, 3 cargando, 5 en espera
-        estado: function () { return listo ? reproductor.getPlayerState() : -2; }
+        estado: function () { return listo ? reproductor.getPlayerState() : -2; },
+        // Segundos del video cargado; 0 mientras YouTube no lo conoce (por ejemplo, si muestra un mensaje de error)
+        duracion: function () { return listo ? (reproductor.getDuration() || 0) : 0; },
+        // Muestra u oculta el reproductor sin quitarlo de la página
+        mostrar: function (visible) {
+            var marco = listo ? reproductor.getIframe() : null;
+            if (marco) marco.style.visibility = visible ? 'visible' : 'hidden';
+        }
     };
 })();
