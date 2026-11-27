@@ -227,6 +227,8 @@ fun SeccionAnalitica(panel: ModeloPanel, miniaturas: ClienteApi, ancho: Boolean)
         derecha = { m -> Ranking(t, modelo, m) },
     )
 
+    TarjetaModeloDemanda(t.modeloDemanda, ancho)
+
     DosColumnas(
         ancho,
         izquierda = { m ->
@@ -349,8 +351,9 @@ private fun Filtros(modelo: ModeloAnalitica) {
     }
 }
 
+/** Opción elegible en forma de píldora (sesiones del periodo, horas del modelo de demanda). */
 @Composable
-private fun Chip(texto: String, elegido: Boolean, alElegir: () -> Unit) {
+internal fun Chip(texto: String, elegido: Boolean, alElegir: () -> Unit) {
     Text(
         texto,
         color = if (elegido) Colores.TextoSobreNeon else Colores.Texto,
