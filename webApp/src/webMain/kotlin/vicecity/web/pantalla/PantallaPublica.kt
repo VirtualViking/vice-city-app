@@ -227,7 +227,7 @@ private fun SuenaAhora(modelo: ModeloPantalla, ancho: Boolean) {
             )
         }
         Text(
-            actual.titulo, color = Colores.Texto, fontSize = if (ancho) 36.sp else 22.sp, fontWeight = FontWeight.Black,
+            actual.titulo, color = Colores.Rosa, fontSize = if (ancho) 36.sp else 22.sp, fontWeight = FontWeight.Black,
             lineHeight = if (ancho) 42.sp else 27.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
         Text(actual.artista, color = Colores.TextoSecundario, fontSize = if (ancho) 24.sp else 16.sp)
