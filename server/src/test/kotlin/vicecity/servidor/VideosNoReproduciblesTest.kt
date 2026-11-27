@@ -146,6 +146,23 @@ class VideosNoReproduciblesTest : PruebaIntegracion() {
     }
 
     @Test
+    fun `un video que no arranca sin aviso de YouTube tambien se salta y se recuerda`() = conApp {
+        responderSalsa()
+        val token = loginAdmin()
+        val sesion = abrir(token)
+        buscar("salsa")
+        assertEquals(HttpStatusCode.Created, pedir(sesion.id, "bloqueado01", ana).status)
+        assertEquals(HttpStatusCode.Created, pedir(sesion.id, "permitido01", ana).status)
+        val inicio = iniciar(token)
+
+        // La vista pública avisa SIN_ARRANQUE: el video no empezó y YouTube no disparó su error
+        val despues = fallida(token, inicio.actual!!, ReproduccionFallida.SIN_ARRANQUE)
+        assertEquals("permitido01", despues.actual!!.videoId)
+        assertEquals(mapOf("bloqueado01" to ReproduccionFallida.SIN_ARRANQUE), noReproducibles())
+        assertEquals(setOf("permitido01"), buscar("salsa"))
+    }
+
+    @Test
     fun `una falla pasajera o el aviso de otra cancion no se recuerdan`() = conApp {
         responderSalsa()
         val token = loginAdmin()

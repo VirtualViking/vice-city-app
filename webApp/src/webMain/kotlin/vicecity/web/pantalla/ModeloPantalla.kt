@@ -20,8 +20,10 @@ import vicecity.web.datos.ClienteApi
 import vicecity.web.datos.ClientePersonal
 import vicecity.web.datos.ErrorDeApi
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import kotlin.time.TimeSource
 import org.jetbrains.skia.Image as ImagenSkia
 
 /**
@@ -50,6 +52,9 @@ class ModeloPantalla(private val api: ClientePersonal, private val recursos: Cli
 
     /** "videoId|inicioEn" de lo que tiene cargado el reproductor de YouTube. */
     private var cargado: String? = null
+    /** Cuándo se cargó [cargado] y si ya empezó a sonar (o se pausó), para detectar videos que no arrancan. */
+    private var cargadoEn: TimeSource.Monotonic.ValueTimeMark? = null
+    private var arranco = false
     private var avisando = false
     private var sondeo: Job? = null
 
@@ -79,6 +84,7 @@ class ModeloPantalla(private val api: ClientePersonal, private val recursos: Cli
                 listo = true
                 sincronizar()
             }
+            "reproduciendo", "pausado" -> arranco = true
             "terminado" -> avisarFin()
             "error" -> avisarFalla(detalle.toIntOrNull() ?: 0)
             "sin-api" -> problema = "No se pudo cargar el reproductor de YouTube. Revisa la conexión a internet y recarga la página."
@@ -132,6 +138,8 @@ class ModeloPantalla(private val api: ClientePersonal, private val recursos: Cli
                 ViceCityReproductor.detener()
                 cargado = null
             }
+            // Sin canción, el recuadro queda oscuro: no se queda a la vista el último mensaje de YouTube
+            ViceCityReproductor.mostrar(false)
             return
         }
         val clave = "${actual.videoId}|${actual.inicioEn}"
@@ -140,16 +148,36 @@ class ModeloPantalla(private val api: ClientePersonal, private val recursos: Cli
             // Si la pantalla se abrió cuando la canción ya debía haber terminado, se pasa a la siguiente
             if (transcurridos > actual.duracionSeg + MARGEN_SEG) {
                 cargado = clave
+                arranco = true   // no se cargó nada que vigilar
                 avisarFin()
                 return
             }
             cargado = clave
+            cargadoEn = TimeSource.Monotonic.markNow()
+            arranco = false
+            ViceCityReproductor.mostrar(true)
             ViceCityReproductor.cargar(actual.videoId, if (transcurridos < MARGEN_SEG) 0 else transcurridos)
         }
         when (reproductor) {
             EstadoReproductor.REPRODUCIENDO -> if (ViceCityReproductor.estado() == PAUSADO_YT) ViceCityReproductor.reproducir()
             else -> if (ViceCityReproductor.estado() == REPRODUCIENDO_YT) ViceCityReproductor.pausar()
         }
+        vigilarArranque(reproductor)
+    }
+
+    /**
+     * Algunos videos bloqueados muestran el mensaje de YouTube sin disparar su evento de error.
+     * Si el video debía sonar y a los 10 segundos sigue sin empezar y sin duración, se avisa como falla (SIN_ARRANQUE):
+     * el servidor lo salta y lo recuerda. Con internet lento no pasa: el reproductor queda "cargando" y ya conoce la duración.
+     */
+    private fun vigilarArranque(reproductor: EstadoReproductor) {
+        if (arranco || reproductor != EstadoReproductor.REPRODUCIENDO) return
+        val desde = cargadoEn ?: return
+        if (desde.elapsedNow() < ESPERA_ARRANQUE) return
+        val estadoYt = ViceCityReproductor.estado()
+        if (estadoYt != SIN_EMPEZAR_YT && estadoYt != EN_ESPERA_YT) return
+        if (ViceCityReproductor.duracion() > 0.0) return
+        avisarFalla(ReproduccionFallida.SIN_ARRANQUE)
     }
 
     private fun avisarFin() {
@@ -202,7 +230,11 @@ class ModeloPantalla(private val api: ClientePersonal, private val recursos: Cli
         /** Píxeles del PNG: se ve nítido incluso en pantallas de alta densidad. */
         const val TAMANO_QR = 600
         const val MARGEN_SEG = 5
+        const val SIN_EMPEZAR_YT = -1
         const val REPRODUCIENDO_YT = 1
         const val PAUSADO_YT = 2
+        const val EN_ESPERA_YT = 5
+        /** Lo que espera la vista pública a que un video empiece antes de darlo por fallido. */
+        val ESPERA_ARRANQUE = 10.seconds
     }
 }
