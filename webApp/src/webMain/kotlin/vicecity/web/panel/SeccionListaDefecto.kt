@@ -67,9 +67,10 @@ private class ModeloListaDefecto(private val panel: ModeloPanel, private val alc
         }
     }
 
+    /** Con menos de 2 letras no hace nada: el servidor no busca textos tan cortos. */
     fun buscar() {
         if (texto.trim().length < 2) {
-            error = "Escribe al menos 2 letras para buscar"
+            error = null
             return
         }
         buscando = true
