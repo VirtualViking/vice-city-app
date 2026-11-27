@@ -15,6 +15,7 @@ import vicecity.servidor.datos.RepositorioCanciones
 import vicecity.servidor.datos.RepositorioDispositivos
 import vicecity.servidor.datos.RepositorioEstablecimientos
 import vicecity.servidor.datos.RepositorioEventos
+import vicecity.servidor.datos.RepositorioNoReproducibles
 import vicecity.servidor.datos.RepositorioTerminos
 import vicecity.servidor.datos.Sesiones
 import vicecity.servidor.datosInvalidos
@@ -86,9 +87,11 @@ class BusquedaService(
 
         return bd.tx {
             val bloqueadas = RepositorioBloqueos.bloqueados(contexto.establecimientoId, ahora)
+            val noReproducibles = RepositorioNoReproducibles.de(videoIds)
             val resultados = RepositorioCanciones.porIds(videoIds)
                 .filter { it[Canciones.duracionSeg] <= contexto.duracionMaxSeg }   // RF-26: lo que no se podría pedir no se muestra
                 .filter { it[Canciones.videoId] !in bloqueadas }                    // ni lo que el DJ bloqueó
+                .filter { it[Canciones.videoId] !in noReproducibles }               // ni lo que YouTube no deja reproducir aquí
                 .map(RepositorioCanciones::aResultado)
             if (dispositivoHash != null) {
                 RepositorioTerminos.registrar(contexto.establecimientoId, termino, Textos.recortar(consulta, 100), ahora)
