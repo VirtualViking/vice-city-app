@@ -51,6 +51,11 @@ private class ModeloAnalitica(private val panel: ModeloPanel, private val alcanc
     var desde by mutableStateOf(HoraColombia.fecha(29))
     var hasta by mutableStateOf(HoraColombia.fecha())
     var sesiones by mutableStateOf<List<SesionAnalitica>>(emptyList())
+    /** Sesiones del periodo que el administrador sacó del tablero. */
+    var excluidas by mutableStateOf<List<SesionAnalitica>>(emptyList())
+    var verExcluidas by mutableStateOf(false)
+    /** Id de la sesión que se está excluyendo o incluyendo. */
+    var cambiando by mutableStateOf<String?>(null)
     /** null: todas las sesiones del periodo. */
     var sesion by mutableStateOf<String?>(null)
     var tablero by mutableStateOf<TableroAnalitico?>(null)
@@ -67,7 +72,10 @@ private class ModeloAnalitica(private val panel: ModeloPanel, private val alcanc
         error = null
         alcance.launch {
             try {
-                sesiones = panel.api.sesionesAnaliticas(desde.trim(), hasta.trim()).sesiones
+                val respuesta = panel.api.sesionesAnaliticas(desde.trim(), hasta.trim())
+                sesiones = respuesta.sesiones
+                excluidas = respuesta.excluidas
+                if (excluidas.isEmpty()) verExcluidas = false
                 if (primeraCarga) {
                     sesion = sesiones.firstOrNull()?.id
                     primeraCarga = false
@@ -88,6 +96,30 @@ private class ModeloAnalitica(private val panel: ModeloPanel, private val alcanc
         sesion = id
         verTodoHistorial = false
         cargar()
+    }
+
+    /**
+     * Saca la sesión del tablero o la vuelve a incluir (por ejemplo, una sesión de prueba).
+     * Al excluir la sesión elegida, el tablero pasa a mostrar todas las del periodo.
+     */
+    fun cambiarExclusion(s: SesionAnalitica, excluir: Boolean) {
+        if (cambiando != null) return
+        cambiando = s.id
+        alcance.launch {
+            try {
+                panel.api.excluirSesion(s.id, excluir)
+                panel.aviso = AvisoPanel(
+                    if (excluir) "Sesión excluida del tablero. Puedes volver a incluirla en \"Sesiones excluidas\"."
+                    else "Sesión incluida de nuevo en el tablero.",
+                )
+                if (excluir && sesion == s.id) sesion = null
+                cargar()
+            } catch (e: ErrorDeApi) {
+                panel.alFallar(e)
+            } finally {
+                cambiando = null
+            }
+        }
     }
 
     /** Ejecuta el pipeline ahora y vuelve a cargar el tablero. */
@@ -270,11 +302,48 @@ private fun Filtros(modelo: ModeloAnalitica) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Todas las del periodo", elegido = modelo.sesion == null, alElegir = { modelo.elegirSesion(null) })
             modelo.sesiones.forEach { s ->
-                Chip("${HoraColombia.fechaCorta(s.inicio)} · ${s.solicitudes} sol.", elegido = modelo.sesion == s.id, alElegir = { modelo.elegirSesion(s.id) })
+                Chip("${HoraColombia.fechaCorta(s.inicio)} · ${textoSolicitudes(s.solicitudes)}", elegido = modelo.sesion == s.id, alElegir = { modelo.elegirSesion(s.id) })
             }
         }
         if (modelo.sesiones.isEmpty() && !modelo.cargando) {
             Text("No hay sesiones en estas fechas.", color = Colores.Apagado, fontSize = 13.sp)
+        }
+
+        // Excluir la sesión elegida (solo si ya cerró) y volver a incluir las excluidas
+        val elegida = modelo.sesiones.firstOrNull { it.id == modelo.sesion }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (elegida != null && elegida.fin != null) {
+                BotonFila(
+                    if (modelo.cambiando == elegida.id) "Excluyendo…" else "Excluir esta sesión del tablero",
+                    alPresionar = { modelo.cambiarExclusion(elegida, excluir = true) }, color = Colores.Aviso, habilitado = modelo.cambiando == null,
+                )
+            }
+            if (modelo.excluidas.isNotEmpty()) {
+                BotonFila(
+                    if (modelo.verExcluidas) "Ocultar sesiones excluidas" else "Sesiones excluidas (${modelo.excluidas.size})",
+                    alPresionar = { modelo.verExcluidas = !modelo.verExcluidas },
+                )
+            }
+        }
+        if (elegida != null && elegida.fin != null) {
+            Text(
+                "Para sesiones de prueba: deja de contar en los indicadores, pero no se borra y la puedes volver a incluir.",
+                color = Colores.Apagado, fontSize = 12.sp, lineHeight = 16.sp,
+            )
+        }
+        if (modelo.verExcluidas) {
+            modelo.excluidas.forEach { s ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "${HoraColombia.fechaCorta(s.inicio)} · ${textoSolicitudes(s.solicitudes)}",
+                        color = Colores.TextoSecundario, fontSize = 13.sp, modifier = Modifier.weight(1f),
+                    )
+                    BotonFila(
+                        if (modelo.cambiando == s.id) "Incluyendo…" else "Volver a incluir",
+                        alPresionar = { modelo.cambiarExclusion(s, excluir = false) }, color = Colores.Cian, habilitado = modelo.cambiando == null,
+                    )
+                }
+            }
         }
         TextoError(modelo.error)
     }
@@ -313,7 +382,7 @@ private fun Ranking(t: TableroAnalitico, modelo: ModeloAnalitica, modifier: Modi
         }
         val maximo = lista.maxOfOrNull { it.votos }?.coerceAtLeast(1) ?: 1
         lista.forEach {
-            BarraHorizontal(it.nombre, "${it.votos} ${if (it.votos == 1) "voto" else "votos"} · ${it.solicitudes} sol.", it.votos.toFloat() / maximo)
+            BarraHorizontal(it.nombre, "${it.votos} ${if (it.votos == 1) "voto" else "votos"} · ${textoSolicitudes(it.solicitudes)}", it.votos.toFloat() / maximo)
         }
     }
 }
@@ -455,6 +524,9 @@ private fun Dato(titulo: String, valor: String) {
         Text(valor, color = Colores.Texto, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
+
+/** "1 solicitud", "13 solicitudes" */
+private fun textoSolicitudes(n: Int) = if (n == 1) "1 solicitud" else "$n solicitudes"
 
 /** "1,6 por usuario" */
 private fun porUsuario(solicitudes: Int, usuarios: Int): String {
