@@ -8,12 +8,13 @@ import kotlin.math.min
 /*
  * Modelo de demanda por hora (analítica con métodos numéricos):
  * 1. ajusta por mínimos cuadrados un polinomio a las solicitudes por hora (promedio por noche),
- * 2. busca la hora pico exacta como raíz de la derivada: Newton-Raphson o, si Newton no sirve, bisección, y
+ * 2. busca la hora pico, el punto más alto de la curva: compara el máximo local (raíz de la derivada, con Newton-Raphson
+ *    o, si Newton no sirve, bisección) con los extremos de la curva, y
  * 3. estima la demanda de un intervalo integrando el polinomio con Simpson, comparado con el trapecio.
  * El eje x son horas desde el mediodía (12 p. m. = 0, 11 p. m. = 11, 1 a. m. = 13): así la medianoche no corta la curva.
  */
 
-/** Cómo se encontró la hora pico. BORDE: la curva no tiene un máximo dentro de la ventana y el pico queda en un extremo. */
+/** Cómo se encontró la hora pico. BORDE: el punto más alto está en el centro de la primera o de la última hora con datos. */
 @Serializable
 enum class MetodoPico { NEWTON_RAPHSON, BISECCION, BORDE }
 
@@ -122,8 +123,8 @@ data class ModeloDemanda(
             val residuos = t.indices.sumOf { (y[it] - p.valor(t[it])) * (y[it] - p.valor(t[it])) }
             val r2 = if (totalCuadrados > 0) 1 - residuos / totalCuadrados else null
 
-            // 2. Hora pico: raíz de p'(t) con p''(t) < 0 (un máximo)
-            val pico = pico(p, t[y.indices.maxBy { y[it] }], escala)
+            // 2. Hora pico: el punto más alto de la curva entre la primera y la última hora con datos
+            val pico = pico(p, t[y.indices.maxBy { y[it] }], t.first(), t.last(), escala)
             return ModeloDemanda(
                 grado = grado,
                 coeficientes = p.coeficientes,
@@ -141,27 +142,35 @@ data class ModeloDemanda(
         private class Pico(val valor: Double, val metodo: MetodoPico, val iteraciones: Int)
 
         /**
-         * Newton-Raphson sobre p'(t) desde la hora observada más alta ([t0]). Si no converge, sale de la ventana
-         * o llega a un mínimo, bisección en el tramo donde p' pasa de positiva a negativa (el más alto si hay varios).
-         * Si la curva no tiene máximo dentro de la ventana, el pico queda en el extremo más alto.
+         * El punto más alto de p entre [tMin] y [tMax], los centros de la primera y de la última hora con datos.
+         * Ese punto es un máximo local (raíz de p' con p'' < 0) o uno de los dos extremos, así que se comparan los tres.
+         * El máximo local se busca con Newton-Raphson desde la hora observada más alta ([t0]). Si no converge, sale de la
+         * ventana o llega a un mínimo, con bisección en el tramo donde p' pasa de positiva a negativa (el más alto si hay varios).
+         * Los extremos son los centros y no los bordes de la ventana: más allá del último dato la curva no tiene con qué
+         * compararse y puede exagerar.
          */
-        private fun pico(p: Polinomio, t0: Double, escala: Double): Pico {
+        private fun pico(p: Polinomio, t0: Double, tMin: Double, tMax: Double, escala: Double): Pico {
             val dp = p.derivada()
             val d2p = dp.derivada()
             val tolerancia = TOLERANCIA / escala
-            MetodosNumericos.newtonRaphson({ dp.valor(it) }, { d2p.valor(it) }, t0, -1.0, 1.0, tolerancia)
+            val maximoLocal = MetodosNumericos.newtonRaphson({ dp.valor(it) }, { d2p.valor(it) }, t0, tMin, tMax, tolerancia)
                 ?.takeIf { d2p.valor(it.valor) < 0 }
-                ?.let { return Pico(it.valor, MetodoPico.NEWTON_RAPHSON, it.iteraciones) }
+                ?.let { Pico(it.valor, MetodoPico.NEWTON_RAPHSON, it.iteraciones) }
+                ?: maximoPorBiseccion(p, dp, tMin, tMax, escala, tolerancia)
+            val candidatos = listOfNotNull(maximoLocal, Pico(tMin, MetodoPico.BORDE, 0), Pico(tMax, MetodoPico.BORDE, 0))
+            // Si empatan, gana el máximo local porque va primero en la lista
+            return candidatos.maxBy { p.valor(it.valor) }
+        }
 
-            // Tramos de 15 minutos donde p' cambia de + a −
+        /** Tramos de 15 minutos donde p' cambia de + a −, cada uno con bisección. Devuelve el más alto o null si no hay. */
+        private fun maximoPorBiseccion(p: Polinomio, dp: Polinomio, tMin: Double, tMax: Double, escala: Double, tolerancia: Double): Pico? {
             val paso = 0.25 / escala
-            val tramos = (0 until ceil(2 / paso).toInt()).map { i -> -1.0 + i * paso to min(1.0, -1.0 + (i + 1) * paso) }
-                .filter { (a, b) -> dp.valor(a) > 0 && dp.valor(b) <= 0 }
-            tramos.mapNotNull { (a, b) -> MetodosNumericos.biseccion({ dp.valor(it) }, a, b, tolerancia) }
+            val cantidad = ceil((tMax - tMin) / paso).toInt()
+            return (0 until cantidad).map { i -> tMin + i * paso to min(tMax, tMin + (i + 1) * paso) }
+                .filter { (a, b) -> a < b && dp.valor(a) > 0 && dp.valor(b) <= 0 }
+                .mapNotNull { (a, b) -> MetodosNumericos.biseccion({ dp.valor(it) }, a, b, tolerancia) }
                 .maxByOrNull { p.valor(it.valor) }
-                ?.let { return Pico(it.valor, MetodoPico.BISECCION, it.iteraciones) }
-
-            return Pico(if (p.valor(-1.0) >= p.valor(1.0)) -1.0 else 1.0, MetodoPico.BORDE, 0)
+                ?.let { Pico(it.valor, MetodoPico.BISECCION, it.iteraciones) }
         }
     }
 }

@@ -125,10 +125,32 @@ class MetodosNumericosTest {
     }
 
     @Test
-    fun `si la noche solo sube el pico queda en el borde y con pocos datos no hay modelo`() {
+    fun `el pico es el punto mas alto de la curva aunque despues haya una loma mas baja`() {
+        // La 1 a. m. fue la hora con más solicitudes; a las 4 a. m. hubo un repunte menor
+        val modelo = assertNotNull(ModeloDemanda.ajustar(porHora(1 to 17, 2 to 12, 3 to 7, 4 to 15, 5 to 4), noches = 1))
+        val p = Polinomio(modelo.coeficientes)
+        val dp = p.derivada()
+
+        // La curva tiene una loma (máximo local) cerca de las 4:20 a. m., más baja que el comienzo de la noche
+        val loma = assertNotNull(
+            MetodosNumericos.newtonRaphson({ dp.valor(it) }, { dp.derivada().valor(it) }, x0 = (16.5 - modelo.centro) / modelo.escala, minimo = -1.0, maximo = 1.0),
+        )
+        cerca(16.32, modelo.centro + loma.valor * modelo.escala, 0.05)
+
+        // El pico queda en el centro de la hora más activa, la 1:30 a. m., y es más alto que la loma
+        val pico = modelo.pico
+        assertEquals(MetodoPico.BORDE, pico.metodo)
+        cerca(13.5, pico.x)
+        assertTrue(pico.solicitudes > p.valor(loma.valor), "Pico: ${pico.solicitudes}, loma: ${p.valor(loma.valor)}")
+        cerca(17.6, pico.solicitudes, 0.1)
+    }
+
+    @Test
+    fun `si la noche solo sube el pico queda en la ultima hora y con pocos datos no hay modelo`() {
         val subiendo = assertNotNull(ModeloDemanda.ajustar(porHora(20 to 1, 21 to 2, 22 to 3, 23 to 4, 0 to 5), noches = 1))
         assertEquals(MetodoPico.BORDE, subiendo.pico.metodo)
-        assertEquals(subiendo.hasta, subiendo.pico.x)
+        // Centro de la última hora con datos: 12:30 a. m.
+        cerca(12.5, subiendo.pico.x)
 
         assertEquals(2, ModeloDemanda.ajustar(porHora(21 to 1, 22 to 4, 23 to 3, 0 to 1), noches = 1)?.grado)
         assertNull(ModeloDemanda.ajustar(porHora(21 to 2, 22 to 1, 23 to 2), noches = 1))
